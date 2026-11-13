@@ -1,6 +1,6 @@
 /**
  * dy.florist — Modern Boutique Web Application
- * Florist • Gift • Craft • Coffee
+ * Florist • Gift • Craft • Dekorasi
  */
 
 // ==========================================
@@ -204,10 +204,14 @@ function renderCatalog() {
   const emptyState = document.getElementById('catalogEmpty');
   if (!grid) return;
 
-  // Cafe & coffee belum tersedia: tab menampilkan pemberitahuan, produknya disembunyikan
-  if (activeFilter === 'coffee') {
+  // Belum ada produk dekorasi: arahkan pengunjung konsultasi lewat WhatsApp
+  if (activeFilter === 'dekorasi' && !PRODUCTS.some(p => p.category === 'dekorasi')) {
     if (emptyState) emptyState.style.display = 'none';
-    grid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; padding: 48px 16px; color: var(--color-text-muted);">☕ Menu Cafe & Treats belum tersedia, masih dalam tahap pengembangan. Nantikan segera!</p>';
+    const waText = encodeURIComponent('Halo dy.florist, saya ingin konsultasi dekorasi acara');
+    grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 48px 16px;">
+      <p style="color: var(--color-text-muted); margin-bottom: 16px;">🎊 Dekorasi lamaran, wedding car, ulang tahun, dan acara lainnya. Konsultasikan konsep Anda bersama kami.</p>
+      <a class="btn btn-primary" href="https://wa.me/${WA_PHONE_NUMBER}?text=${waText}" target="_blank" rel="noopener noreferrer">Konsultasi Dekorasi via WhatsApp</a>
+    </div>`;
     return;
   }
 

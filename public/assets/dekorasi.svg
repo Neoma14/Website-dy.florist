@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="Dekorasi dy.florist">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFF0F6"/>
+      <stop offset="1" stop-color="#F9C6DD"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg)"/>
+  <circle cx="140" cy="120" r="70" fill="#FFFFFF" opacity="0.5"/>
+  <circle cx="680" cy="470" r="110" fill="#FFFFFF" opacity="0.4"/>
+  <circle cx="620" cy="110" r="38" fill="#E4007F" opacity="0.18"/>
+  <circle cx="190" cy="500" r="46" fill="#E4007F" opacity="0.14"/>
+  <g fill="none" stroke="#E4007F" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.85">
+    <path d="M250 330 C250 250 400 250 400 330 C400 250 550 250 550 330"/>
+    <path d="M250 330 L400 450 L550 330"/>
+    <path d="M400 150 L400 220"/>
+    <path d="M352 190 C352 160 380 150 400 175 C420 150 448 160 448 190 C448 220 400 250 400 250 C400 250 352 220 352 190 Z"/>
+  </g>
+  <text x="400" y="525" text-anchor="middle" font-family="Georgia, serif" font-size="44" fill="#E4007F">Dekorasi</text>
+</svg>
