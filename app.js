@@ -169,6 +169,11 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       renderCatalog();
     }
+    // Jika admin sudah terbuka (alamat /admin) sebelum produk selesai dimuat, segarkan tabelnya
+    if (isAdminLoggedIn) {
+      renderAdminProductsTable();
+      updateAdminBadges();
+    }
   });
   setupFilterTabs();
   setupSearch();
@@ -794,6 +799,10 @@ let isAdminLoggedIn = false;
 let ADMIN_ORDERS = [];
 
 function setupAdmin() {
+  // Admin tidak punya tombol di halaman publik: dibuka lewat alamat khusus /admin
+  if (location.pathname.replace(/\/+$/, '') === '/admin') {
+    openAdminModal();
+  }
   const openBtn = document.getElementById('openAdminBtn');
   const closeBtn = document.getElementById('closeAdminBtn');
   const overlay = document.getElementById('adminModalOverlay');
@@ -845,6 +854,10 @@ window.closeAdminModal = function() {
   const overlay = document.getElementById('adminModalOverlay');
   if (overlay) overlay.classList.remove('open');
   document.body.style.overflow = '';
+  // Tutup admin = kembali ke beranda biasa
+  if (location.pathname.replace(/\/+$/, '') === '/admin') {
+    history.replaceState(null, '', '/');
+  }
 };
 
 function showAdminLogin() {
