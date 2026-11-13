@@ -353,6 +353,11 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
     set.headers["retry-after"] = "600";
     return { error: "Terlalu banyak pesanan. Coba lagi nanti." };
   }
+  if (await rateLimited("order-global", "all", 200, 60 * 60 * 1e3)) {
+    set.status = 429;
+    set.headers["retry-after"] = "600";
+    return { error: "Layanan sedang sibuk. Silakan hubungi kami lewat WhatsApp." };
+  }
   const db = getDb();
   const ids = [...new Set(body.items.map((i) => i.id))];
   const found = await db.select().from(schema_exports.products).where(inArray(schema_exports.products.id, ids));

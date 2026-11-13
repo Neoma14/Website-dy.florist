@@ -226,6 +226,14 @@ test('pesanan: rate limit per IP (maks 5 / 10 menit)', async () => {
   assert.equal((await send()).status, 429);
 });
 
+test('rate limiter: batas tercapai lalu diblokir, bucket lain tidak terpengaruh', async () => {
+  const { rateLimited } = await import('./lib/security');
+  const bucket = 'tes-' + Date.now();
+  for (let i = 0; i < 3; i++) assert.equal(await rateLimited(bucket, 'all', 3, 60_000), false);
+  assert.equal(await rateLimited(bucket, 'all', 3, 60_000), true);
+  assert.equal(await rateLimited(bucket + 'b', 'all', 3, 60_000), false);
+});
+
 test('pesanan: payload XSS disimpan apa adanya tapi hanya admin yang bisa membaca daftar', async () => {
   const xss = '<script>alert(1)</script>';
   const o = await call('/api/orders', {

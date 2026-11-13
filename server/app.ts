@@ -208,6 +208,12 @@ export const app = new Elysia({ prefix: '/api' })
       set.headers['retry-after'] = '600';
       return { error: 'Terlalu banyak pesanan. Coba lagi nanti.' };
     }
+    // Batas total semua pengunjung (anti-banjir data dari banyak IP): maks 200 pesanan / jam
+    if (await rateLimited('order-global', 'all', 200, 60 * 60 * 1000)) {
+      set.status = 429;
+      set.headers['retry-after'] = '600';
+      return { error: 'Layanan sedang sibuk. Silakan hubungi kami lewat WhatsApp.' };
+    }
     const db = getDb();
     const ids = [...new Set(body.items.map((i) => i.id))];
     const found = await db.select().from(schema.products).where(inArray(schema.products.id, ids));
