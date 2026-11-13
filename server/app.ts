@@ -15,7 +15,6 @@ const CATEGORIES: Record<string, string> = {
   gift: 'Gift & Hampers',
   craft: 'Craft & Preserved',
   dekorasi: 'Dekorasi',
-  coffee: 'Cafe & Treats', // lama; tidak lagi ditawarkan di form admin
 };
 
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // batas body Vercel Functions ~4.5 MB

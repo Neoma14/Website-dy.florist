@@ -196,9 +196,7 @@ var CATEGORIES = {
   florist: "Florist",
   gift: "Gift & Hampers",
   craft: "Craft & Preserved",
-  dekorasi: "Dekorasi",
-  coffee: "Cafe & Treats"
-  // lama; tidak lagi ditawarkan di form admin
+  dekorasi: "Dekorasi"
 };
 var MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 var UPLOAD_DIR = join(process.cwd(), ".uploads");

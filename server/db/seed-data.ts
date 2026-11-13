@@ -142,53 +142,5 @@ export const SEED_PRODUCTS = [
     "image": "/assets/dome.jpg",
     "rating": 49,
     "reviews": 31
-  },
-  {
-    "id": "cf1",
-    "name": "Signature Rose Petal Latte & Croissant",
-    "category": "coffee",
-    "categoryName": "Cafe & Treats",
-    "price": 55000,
-    "badge": "Cafe Star",
-    "description": "Bundling terfavorit! Cangkir hangat Rose Petal Latte dengan espresso arabika, sirup mawar asli, foam lembut ditaburi kelopak mawar edible, plus French Butter Croissant renyah.",
-    "image": "/assets/coffee.jpg",
-    "rating": 50,
-    "reviews": 210
-  },
-  {
-    "id": "cf2",
-    "name": "Bloom & Brew Duo (Mini Bouquet + Latte)",
-    "category": "coffee",
-    "categoryName": "Cafe & Treats",
-    "price": 185000,
-    "badge": "Best Value",
-    "description": "Spesial dine-in/takeaway dy.florist: 1 Petite Fresh Rose Bouquet + 1 Iced Spanish Lavender Latte dalam kemasan cup estetik can-sealer.",
-    "image": "/assets/coffee.jpg",
-    "rating": 50,
-    "reviews": 134
-  },
-  {
-    "id": "cf3",
-    "name": "Matcha Strawberry Bloom Latte",
-    "category": "coffee",
-    "categoryName": "Cafe & Treats",
-    "price": 35000,
-    "badge": "Sweet Sip",
-    "description": "Layering memukau antara selai strawberry asli buatan rumah, fresh creamy oat milk, dan foam Uji Matcha Jepang premium berbusa halus.",
-    "image": "/assets/coffee.jpg",
-    "rating": 49,
-    "reviews": 88
-  },
-  {
-    "id": "cf4",
-    "name": "Strawberry Biscoff Croffle Box (2 Pcs)",
-    "category": "coffee",
-    "categoryName": "Cafe & Treats",
-    "price": 45000,
-    "badge": "Crispy",
-    "description": "Croffle butter karamel renyah dengan topping cream keju vanila lembut, potongan buah strawberry segar, saus Lotus Biscoff, dan remahan biskuit wangi.",
-    "image": "/assets/coffee.jpg",
-    "rating": 48,
-    "reviews": 76
   }
 ];

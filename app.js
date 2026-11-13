@@ -216,7 +216,6 @@ function renderCatalog() {
   }
 
   const filtered = PRODUCTS.filter(p => {
-    if (p.category === 'coffee') return false;
     const matchesCategory = activeFilter === 'all' || p.category === activeFilter;
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
