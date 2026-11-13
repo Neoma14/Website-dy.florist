@@ -2002,6 +2002,7 @@ button {
    Toast Notification
    ========================================================================== */
 .toast-container {
+  pointer-events: none;
   position: fixed;
   bottom: 24px;
   left: 24px;

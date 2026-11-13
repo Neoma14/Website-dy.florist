@@ -11,7 +11,8 @@
     "db:migrate": "tsx --env-file=.env scripts/migrate.ts",
     "db:seed": "tsx --env-file=.env scripts/seed.ts",
     "test": "tsx --env-file=.env --test server/app.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev:api": "tsx --env-file=.env scripts/dev-api.ts"
   },
   "repository": {
     "type": "git",

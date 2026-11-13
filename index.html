@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>dy.florist — Florist • Gift • Craft • Coffee</title>
   <meta name="description" content="dy.florist: Rangkaian bunga segar premium, hampers & kado personal, kerajinan preserved flowers, serta artisanal cafe experience di satu tempat yang memikat hati.">
-  <link rel="icon" type="image/png" href="./assets/logo.png">
+  <link rel="icon" type="image/png" href="/assets/logo.png">
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,7 +27,7 @@
   <header class="site-header" id="header">
     <div class="container header-inner">
       <a href="#" class="brand-logo" aria-label="dy.florist Beranda">
-        <img src="./assets/logo.png" alt="dy.florist Logo" class="logo-img">
+        <img src="/assets/logo.png" alt="dy.florist Logo" class="logo-img">
       </a>
 
       <nav class="nav-menu" id="navMenu">
@@ -79,7 +79,7 @@
     <!-- Hero Section -->
     <section class="hero-section" id="home">
       <div class="hero-bg-overlay"></div>
-      <div class="hero-bg-image" style="background-image: url('./assets/hero.jpg');"></div>
+      <div class="hero-bg-image" style="background-image: url('/assets/hero.jpg');"></div>
       
       <div class="container hero-content">
         <div class="hero-pill">
@@ -153,7 +153,7 @@
           <!-- Pillar 1: Florist -->
           <div class="pillar-card" data-category="florist">
             <div class="pillar-img-wrap">
-              <img src="./assets/bouquet.jpg" alt="dy.florist Rangkaian Bunga" loading="lazy">
+              <img src="/assets/bouquet.jpg" alt="dy.florist Rangkaian Bunga" loading="lazy">
               <span class="pillar-tag">Pilar 01</span>
             </div>
             <div class="pillar-body">
@@ -162,14 +162,14 @@
                 <span class="pillar-badge">Fresh Blooms</span>
               </div>
               <p>Buket bunga segar bergaya Korean aesthetic, Bloom Box velvet mewah, standing flower perayaan, serta dekorasi pernikahan istimewa.</p>
-              <button class="pillar-action" onclick="filterCatalog('florist')">Jelajahi Florist →</button>
+              <button class="pillar-action" data-click="filterCatalog('florist')">Jelajahi Florist →</button>
             </div>
           </div>
 
           <!-- Pillar 2: Gift -->
           <div class="pillar-card" data-category="gift">
             <div class="pillar-img-wrap">
-              <img src="./assets/gift.jpg" alt="dy.florist Gift & Hampers" loading="lazy">
+              <img src="/assets/gift.jpg" alt="dy.florist Gift & Hampers" loading="lazy">
               <span class="pillar-tag">Pilar 02</span>
             </div>
             <div class="pillar-body">
@@ -178,14 +178,14 @@
                 <span class="pillar-badge">Curated Sets</span>
               </div>
               <p>Hampers eksklusif dengan scented candle aromaterapi, boneka wisuda, cokelat artisan, dan personalised acrylic greeting gift box.</p>
-              <button class="pillar-action" onclick="filterCatalog('gift')">Jelajahi Gift →</button>
+              <button class="pillar-action" data-click="filterCatalog('gift')">Jelajahi Gift →</button>
             </div>
           </div>
 
           <!-- Pillar 3: Craft -->
           <div class="pillar-card" data-category="craft">
             <div class="pillar-img-wrap">
-              <img src="./assets/dome.jpg" alt="dy.florist Craft & Preserved" loading="lazy">
+              <img src="/assets/dome.jpg" alt="dy.florist Craft & Preserved" loading="lazy">
               <span class="pillar-tag">Pilar 03</span>
             </div>
             <div class="pillar-body">
@@ -194,14 +194,14 @@
                 <span class="pillar-badge">Eternal Art</span>
               </div>
               <p>Preserved flowers abadi dalam kubah kaca berlampu LED, dried flower frames artistik, serta floral DIY craft workshop mingguan.</p>
-              <button class="pillar-action" onclick="filterCatalog('craft')">Jelajahi Craft →</button>
+              <button class="pillar-action" data-click="filterCatalog('craft')">Jelajahi Craft →</button>
             </div>
           </div>
 
           <!-- Pillar 4: Coffee -->
           <div class="pillar-card" data-category="coffee">
             <div class="pillar-img-wrap">
-              <img src="./assets/coffee.jpg" alt="dy.florist Cafe & Coffee" loading="lazy">
+              <img src="/assets/coffee.jpg" alt="dy.florist Cafe & Coffee" loading="lazy">
               <span class="pillar-tag">Pilar 04</span>
             </div>
             <div class="pillar-body">
@@ -210,7 +210,7 @@
                 <span class="pillar-badge">Artisan Brew</span>
               </div>
               <p>Cafe boutique bernuansa floral dengan signature Rose Petal Latte, pastry renyah, dan bundling manis: bunga favorit & kopi segar.</p>
-              <button class="pillar-action" onclick="filterCatalog('coffee')">Jelajahi Menu Cafe →</button>
+              <button class="pillar-action" data-click="filterCatalog('coffee')">Jelajahi Menu Cafe →</button>
             </div>
           </div>
         </div>
@@ -253,7 +253,7 @@
 
         <div class="catalog-empty" id="catalogEmpty" style="display: none;">
           <p>Tidak ada produk yang sesuai dengan pencarian Anda. Coba kata kunci lain atau hubungi florist kami.</p>
-          <button class="btn btn-primary" onclick="resetFilters()">Tampilkan Semua</button>
+          <button class="btn btn-primary" data-click="resetFilters()">Tampilkan Semua</button>
         </div>
       </div>
     </section>
@@ -370,7 +370,7 @@
               <div class="preview-card-sticky">
                 <div class="preview-badge">Live Summary</div>
                 <div class="preview-visual" id="customVisualPreview">
-                  <img src="./assets/bouquet.jpg" alt="Preview Rangkaian" id="customPreviewImg">
+                  <img src="/assets/bouquet.jpg" alt="Preview Rangkaian" id="customPreviewImg">
                 </div>
 
                 <div class="preview-details">
@@ -406,7 +406,7 @@
         <div class="cafe-grid">
           <div class="cafe-visual">
             <div class="cafe-img-main">
-              <img src="./assets/coffee.jpg" alt="dy.florist Artisan Coffee" loading="lazy">
+              <img src="/assets/coffee.jpg" alt="dy.florist Artisan Coffee" loading="lazy">
             </div>
             <div class="cafe-float-badge">
               <span class="cafe-icon">☕🌸</span>
@@ -606,8 +606,8 @@
                 <div>
                   <strong>Kontak & Pemesanan</strong>
                   <p>
-                    Pesan via WhatsApp: <a href="https://wa.me/6288267108077" target="_blank" style="color: var(--color-primary); font-weight: 600;">+62 882-6710-8077</a><br>
-                    Layanan Pelanggan: <a href="https://wa.me/6287871897450" target="_blank" style="color: var(--color-primary); font-weight: 600;">+62 878-7189-7450</a><br>
+                    Pesan via WhatsApp: <a href="https://wa.me/6288267108077" target="_blank" rel="noopener noreferrer" style="color: var(--color-primary); font-weight: 600;">+62 882-6710-8077</a><br>
+                    Layanan Pelanggan: <a href="https://wa.me/6287871897450" target="_blank" rel="noopener noreferrer" style="color: var(--color-primary); font-weight: 600;">+62 878-7189-7450</a><br>
                     Instagram: @dy.florist
                   </p>
                 </div>
@@ -640,7 +640,7 @@
   <footer class="site-footer">
     <div class="container footer-top">
       <div class="footer-col brand-col">
-        <img src="./assets/logo.png" alt="dy.florist Logo" class="footer-logo">
+        <img src="/assets/logo.png" alt="dy.florist Logo" class="footer-logo">
         <p class="footer-desc">
           dy.florist adalah butik bunga modern yang menghadirkan rangkaian bunga segar, kado personal, kerajinan preserved flowers, dan suasana coffee cafe yang hangat.
         </p>
@@ -654,10 +654,10 @@
       <div class="footer-col">
         <h4>Kategori Layanan</h4>
         <ul>
-          <li><a href="#catalog" onclick="filterCatalog('florist')">Fresh Flower Bouquets</a></li>
-          <li><a href="#catalog" onclick="filterCatalog('florist')">Velvet Bloom Boxes</a></li>
-          <li><a href="#catalog" onclick="filterCatalog('gift')">Curated Gift Hampers</a></li>
-          <li><a href="#catalog" onclick="filterCatalog('craft')">Preserved Rose Domes</a></li>
+          <li><a href="#catalog" data-click="filterCatalog('florist')">Fresh Flower Bouquets</a></li>
+          <li><a href="#catalog" data-click="filterCatalog('florist')">Velvet Bloom Boxes</a></li>
+          <li><a href="#catalog" data-click="filterCatalog('gift')">Curated Gift Hampers</a></li>
+          <li><a href="#catalog" data-click="filterCatalog('craft')">Preserved Rose Domes</a></li>
           <li><a href="#cafe">Florist Cafe Menu</a></li>
         </ul>
       </div>
@@ -668,8 +668,8 @@
           <li><a href="#customizer">Bespoke Customizer</a></li>
           <li><a href="#faq">FAQ & Tanya Jawab</a></li>
           <li><a href="#contact">Petunjuk Lokasi Toko</a></li>
-          <li><a href="https://wa.me/6288267108077" target="_blank">Corporate & Event Order</a></li>
-          <li><a href="javascript:void(0)" onclick="openAdminModal()">🔑 Portal Admin Toko</a></li>
+          <li><a href="https://wa.me/6288267108077" target="_blank" rel="noopener noreferrer">Corporate & Event Order</a></li>
+          <li><a href="javascript:void(0)" data-click="openAdminModal()">🔑 Portal Admin Toko</a></li>
         </ul>
       </div>
 
@@ -679,7 +679,7 @@
         <a href="https://wa.me/6288267108077?text=Halo%20dy.florist,%20saya%20ingin%20pemesanan%20bunga" class="btn btn-primary footer-contact-btn">
           <span>Pesan: +62 882-6710-8077</span>
         </a>
-        <p style="font-size: 0.82rem; margin-top: 6px;">CS: <a href="https://wa.me/6287871897450" target="_blank" style="color: #FF59A6; font-weight: 600;">+62 878-7189-7450</a></p>
+        <p style="font-size: 0.82rem; margin-top: 6px;">CS: <a href="https://wa.me/6287871897450" target="_blank" rel="noopener noreferrer" style="color: #FF59A6; font-weight: 600;">+62 878-7189-7450</a></p>
         <p class="store-hours-note">Buka Setiap Hari: 08:00 - 21:00 WIB</p>
       </div>
     </div>
@@ -712,7 +712,7 @@
       <div class="empty-cart-state" id="emptyCartState">
         <div class="empty-icon">💐</div>
         <p>Keranjang pesanan Anda masih kosong.</p>
-        <button class="btn btn-primary" onclick="closeCart(); location.href='#catalog'">Pilih Bunga Cantik</button>
+        <button class="btn btn-primary" data-click="closeCart(); goCatalog()">Pilih Bunga Cantik</button>
       </div>
 
       <div class="cart-items-list" id="cartItemsList"></div>
@@ -770,11 +770,11 @@
         <div class="admin-login-card">
           <div class="admin-login-icon">🔐</div>
           <h3>Masuk Dashboard Admin</h3>
-          <p class="admin-login-desc">Masukkan PIN / Kata Sandi Admin untuk mengelola katalog produk, harga, dan melihat pesanan.</p>
-          <form id="adminLoginForm" onsubmit="event.preventDefault(); handleAdminLogin();">
+          <p class="admin-login-desc">Masukkan password admin untuk mengelola katalog produk, harga, dan melihat pesanan.</p>
+          <form id="adminLoginForm" data-submit="handleAdminLogin()">
             <div class="form-group">
-              <label for="adminPinInput">PIN / Kata Sandi Admin:</label>
-              <input type="password" id="adminPinInput" placeholder="Masukkan PIN Admin..." required autocomplete="current-password">
+              <label for="adminPasswordInput">Password Admin:</label>
+              <input type="password" id="adminPasswordInput" placeholder="Masukkan password admin..." required maxlength="200" autocomplete="current-password">
             </div>
             <button type="submit" class="btn btn-primary btn-block">
               <span>Buka Dashboard Admin</span>
@@ -786,24 +786,23 @@
       <!-- Dashboard View (Shown after authentication) -->
       <div class="admin-view" id="adminDashboardView" style="display: none;">
         <div class="admin-nav-tabs">
-          <button class="admin-tab active" data-tab="products" onclick="switchAdminTab('products')">📦 Kelola Produk (<span id="adminTotalCount">0</span>)</button>
-          <button class="admin-tab" data-tab="add" onclick="switchAdminTab('add')">➕ Tambah Produk Baru</button>
-          <button class="admin-tab" data-tab="orders" onclick="switchAdminTab('orders')">📋 Riwayat Order (<span id="adminOrdersCount">0</span>)</button>
+          <button class="admin-tab active" data-tab="products" data-click="switchAdminTab('products')">📦 Kelola Produk (<span id="adminTotalCount">0</span>)</button>
+          <button class="admin-tab" data-tab="add" data-click="switchAdminTab('add')">➕ Tambah Produk Baru</button>
+          <button class="admin-tab" data-tab="orders" data-click="switchAdminTab('orders')">📋 Riwayat Order (<span id="adminOrdersCount">0</span>)</button>
           <div class="admin-nav-spacer"></div>
-          <button class="btn-logout" onclick="handleAdminLogout()">Keluar 🚪</button>
+          <button class="btn-logout" data-click="handleAdminLogout()">Keluar 🚪</button>
         </div>
 
         <div class="admin-tab-content" id="adminTabProducts">
           <div class="admin-toolbar">
-            <input type="text" id="adminSearchInput" placeholder="Cari nama produk..." oninput="filterAdminProducts()">
-            <select id="adminCategoryFilter" onchange="filterAdminProducts()">
+            <input type="text" id="adminSearchInput" placeholder="Cari nama produk..." data-input="filterAdminProducts()">
+            <select id="adminCategoryFilter" data-change="filterAdminProducts()">
               <option value="all">Semua Kategori</option>
               <option value="florist">Florist</option>
               <option value="gift">Gift Hampers</option>
               <option value="craft">Craft & Preserved</option>
               <option value="coffee">Cafe & Coffee</option>
             </select>
-            <button class="btn btn-secondary btn-sm" onclick="resetProductsToDefault()">↺ Reset ke Katalog Awal</button>
           </div>
           <div class="admin-table-wrapper">
             <table class="admin-table">
@@ -825,7 +824,7 @@
         </div>
 
         <div class="admin-tab-content" id="adminTabAdd" style="display: none;">
-          <form id="adminProductForm" onsubmit="event.preventDefault(); saveAdminProduct();" class="admin-form-grid">
+          <form id="adminProductForm" data-submit="saveAdminProduct()" class="admin-form-grid">
             <input type="hidden" id="editProductId" value="">
             
             <div class="form-group full-width">
@@ -855,7 +854,7 @@
 
             <div class="form-group">
               <label for="prodImageFile">Foto Produk *</label>
-              <input type="file" id="prodImageFile" accept="image/*" onchange="handleProductImageUpload(this)">
+              <input type="file" id="prodImageFile" accept="image/*" data-change="handleProductImageUpload(this)">
               <input type="hidden" id="prodImage">
               <img id="prodImagePreview" alt="Preview foto" style="display:none; margin-top:8px; max-width:120px; max-height:120px; border-radius:8px; object-fit:cover;">
             </div>
@@ -869,7 +868,7 @@
               <button type="submit" class="btn btn-primary" id="btnSaveProduct">
                 <span id="saveBtnText">Simpan Produk</span>
               </button>
-              <button type="button" class="btn btn-secondary" onclick="cancelEditProduct()">Batal</button>
+              <button type="button" class="btn btn-secondary" data-click="cancelEditProduct()">Batal</button>
             </div>
           </form>
         </div>
@@ -877,7 +876,7 @@
         <div class="admin-tab-content" id="adminTabOrders" style="display: none;">
           <div class="admin-orders-header">
             <h4>Riwayat Transaksi WhatsApp Pelanggan</h4>
-            <button class="btn btn-secondary btn-sm" onclick="clearOrdersLog()">Hapus Riwayat</button>
+            <button class="btn btn-secondary btn-sm" data-click="clearOrdersLog()">Hapus Riwayat</button>
           </div>
           <div class="admin-table-wrapper">
             <table class="admin-table">

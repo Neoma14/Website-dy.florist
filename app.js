@@ -3,223 +3,133 @@
  * Florist • Gift • Craft • Coffee
  */
 
-const DEFAULT_PRODUCTS = [
-  // FLORIST
-  {
-    id: 'f1',
-    name: 'Serenade Pink Korean Rose Bouquet',
-    category: 'florist',
-    categoryName: 'Florist',
-    price: 320000,
-    rating: 5.0,
-    reviews: 142,
-    badge: 'Best Seller',
-    image: './assets/bouquet.jpg',
-    description: 'Rangkaian mawar pink premium, peony, baby breath, dan eucalyptus segar dengan teknik Korean wrapping matte blush pink & pita satin ivory. Cocok untuk anniversary & hari spesial.'
-  },
-  {
-    id: 'f2',
-    name: 'Royal Velvet Pastel Bloom Box',
-    category: 'florist',
-    categoryName: 'Florist',
-    price: 450000,
-    rating: 4.9,
-    reviews: 89,
-    badge: 'Signature',
-    image: './assets/bloom_box.jpg',
-    description: 'Kotak beludru pink mewah berisi kombinasi mawar peach, hydrangea biru lembut, dan lisianthus ungu. Dilengkapi pita emas dan oasis penjaga kesegaran hingga 7 hari.'
-  },
-  {
-    id: 'f3',
-    name: 'Graceful Sunset Tulip & Rose Wrap',
-    category: 'florist',
-    categoryName: 'Florist',
-    price: 375000,
-    rating: 4.9,
-    reviews: 64,
-    badge: 'Popular',
-    image: './assets/bouquet.jpg',
-    description: 'Kombinasi bunga tulip impor dan mawar bernuansa hangat orange-peach, dibalut kertas linen kraft premium dengan aksen pita copper elegan.'
-  },
-  {
-    id: 'f4',
-    name: 'Grand Opening Standing Bloom',
-    category: 'florist',
-    categoryName: 'Florist',
-    price: 750000,
-    rating: 5.0,
-    reviews: 51,
-    badge: 'Celebration',
-    image: './assets/bloom_box.jpg',
-    description: 'Standing flower mewah dengan rangkaian bunga segar melimpah untuk ucapan selamat pembukaan bisnis, kelulusan, atau pernikahan megah.'
-  },
-
-  // GIFT
-  {
-    id: 'g1',
-    name: 'Luxe Bloom & Scented Candle Hamper',
-    category: 'gift',
-    categoryName: 'Gift & Hampers',
-    price: 495000,
-    rating: 5.0,
-    reviews: 112,
-    badge: 'Editor Pick',
-    image: './assets/gift.jpg',
-    description: 'Gift box eksklusif hardbox velvet berisi preserved mini bouquet, artisan soy wax scented candle (Elysian Bloom), wick trimmer rose gold, dan kartu ucapan kustom.'
-  },
-  {
-    id: 'g2',
-    name: 'Sweet Celebration Graduation Bundle',
-    category: 'gift',
-    categoryName: 'Gift & Hampers',
-    price: 380000,
-    rating: 4.8,
-    reviews: 97,
-    badge: 'Gift Fav',
-    image: './assets/gift.jpg',
-    description: 'Paket kado wisuda manis berisi boneka teddy toga wisuda, buket bunga segar mini, sekotak Ferrero Rocher (5 pcs), dan greeting card custom nama wisudawan.'
-  },
-  {
-    id: 'g3',
-    name: 'Personalised Acrylic Blossom Box',
-    category: 'gift',
-    categoryName: 'Gift & Hampers',
-    price: 420000,
-    rating: 4.9,
-    reviews: 43,
-    badge: 'Custom',
-    image: './assets/gift.jpg',
-    description: 'Kotak akrilik transparan berlampu LED dengan lettering nama custom berhias bunga mawar preserved abadi dan parfum roll-on botanical.'
-  },
-  {
-    id: 'g4',
-    name: 'Warm Hug Newborn & Mom Hamper',
-    category: 'gift',
-    categoryName: 'Gift & Hampers',
-    price: 520000,
-    rating: 5.0,
-    reviews: 38,
-    badge: 'New',
-    image: './assets/gift.jpg',
-    description: 'Hamper premium menyambut kelahiran buah hati: floral arrangement pastel, perlengkapan bayi organik lembut, dan scented reed diffuser untuk sang ibu.'
-  },
-
-  // CRAFT
-  {
-    id: 'c1',
-    name: 'Eternal Rose Beauty Glass Dome',
-    category: 'craft',
-    categoryName: 'Craft & Preserved',
-    price: 420000,
-    rating: 5.0,
-    reviews: 156,
-    badge: 'Iconic',
-    image: './assets/dome.jpg',
-    description: 'Mawar preserved abadi yang diawetkan khusus dalam kubah kaca bening dengan tatakan kayu solid dan untaian lampu LED fairy warm white. Tahan 2-3 tahun tanpa air.'
-  },
-  {
-    id: 'c2',
-    name: 'Botanical Dried Flower Glass Frame',
-    category: 'craft',
-    categoryName: 'Craft & Preserved',
-    price: 290000,
-    rating: 4.8,
-    reviews: 62,
-    badge: 'Artisan',
-    image: './assets/dome.jpg',
-    description: 'Bingkai foto kaca ganda dengan susunan pressed flower asli dan kaligrafi nama emas. Dekorasi meja dan dinding yang estetik bernuansa vintage.'
-  },
-  {
-    id: 'c3',
-    name: 'Preserved Wildflower Bell Jar Mini',
-    category: 'craft',
-    categoryName: 'Craft & Preserved',
-    price: 260000,
-    rating: 4.9,
-    reviews: 48,
-    badge: 'Compact',
-    image: './assets/dome.jpg',
-    description: 'Kubah kaca mini dengan rangkaian lavender, baby breath, dan bunny tail yang menawan. Cocok sebagai hadiah ulang tahun mungil dan pemanis meja belajar.'
-  },
-  {
-    id: 'c4',
-    name: 'DIY Floral Arrangement Workshop Kit',
-    category: 'craft',
-    categoryName: 'Craft & Preserved',
-    price: 340000,
-    rating: 4.9,
-    reviews: 31,
-    badge: 'Workshop',
-    image: './assets/dome.jpg',
-    description: 'Kit belajar merangkai bunga preserved lengkap dengan vas keramik, aneka dried flowers, gunting florist, kawat florikultura, dan panduan video langkah demi langkah.'
-  },
-
-  // COFFEE & CAFE
-  {
-    id: 'cf1',
-    name: 'Signature Rose Petal Latte & Croissant',
-    category: 'coffee',
-    categoryName: 'Cafe & Treats',
-    price: 550000 / 10, // 55.000
-    rating: 5.0,
-    reviews: 210,
-    badge: 'Cafe Star',
-    image: './assets/coffee.jpg',
-    description: 'Bundling terfavorit! Cangkir hangat Rose Petal Latte dengan espresso arabika, sirup mawar asli, foam lembut ditaburi kelopak mawar edible, plus French Butter Croissant renyah.'
-  },
-  {
-    id: 'cf2',
-    name: 'Bloom & Brew Duo (Mini Bouquet + Latte)',
-    category: 'coffee',
-    categoryName: 'Cafe & Treats',
-    price: 185000,
-    rating: 5.0,
-    reviews: 134,
-    badge: 'Best Value',
-    image: './assets/coffee.jpg',
-    description: 'Spesial dine-in/takeaway dy.florist: 1 Petite Fresh Rose Bouquet + 1 Iced Spanish Lavender Latte dalam kemasan cup estetik can-sealer.'
-  },
-  {
-    id: 'cf3',
-    name: 'Matcha Strawberry Bloom Latte',
-    category: 'coffee',
-    categoryName: 'Cafe & Treats',
-    price: 35000,
-    rating: 4.9,
-    reviews: 88,
-    badge: 'Sweet Sip',
-    image: './assets/coffee.jpg',
-    description: 'Layering memukau antara selai strawberry asli buatan rumah, fresh creamy oat milk, dan foam Uji Matcha Jepang premium berbusa halus.'
-  },
-  {
-    id: 'cf4',
-    name: 'Strawberry Biscoff Croffle Box (2 Pcs)',
-    category: 'coffee',
-    categoryName: 'Cafe & Treats',
-    price: 45000,
-    rating: 4.8,
-    reviews: 76,
-    badge: 'Crispy',
-    image: './assets/coffee.jpg',
-    description: 'Croffle butter karamel renyah dengan topping cream keju vanila lembut, potongan buah strawberry segar, saus Lotus Biscoff, dan remahan biskuit wangi.'
-  }
-];
-
-// Helper to get or initialize dynamic products
-function getStoredProducts() {
-  const stored = localStorage.getItem('dy_florist_custom_products');
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch (e) {
-      console.error('Error parsing custom products:', e);
-    }
-  }
-  return [...DEFAULT_PRODUCTS];
+// ==========================================
+// 0. UTILITIES: escaping, API client, URL gambar aman
+// ==========================================
+function esc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
 }
 
-let PRODUCTS = getStoredProducts();
-let ordersLog = JSON.parse(localStorage.getItem('dy_florist_orders_log')) || [];
+// Hanya gambar dari aset situs, upload lokal (dev), atau Vercel Blob yang boleh tampil
+const SAFE_IMAGE = /^(\/assets\/[\w.-]+|\/api\/uploads\/[a-f0-9]{32}\.(jpg|png|webp)|https:\/\/[a-z0-9]+\.public\.blob\.vercel-storage\.com\/products\/[\w.-]+)$/;
+function safeImg(url) {
+  return SAFE_IMAGE.test(String(url)) ? url : '/assets/bouquet.jpg';
+}
+
+async function api(path, { method = 'GET', json, form } = {}) {
+  const headers = {};
+  let body;
+  if (method !== 'GET') headers['X-Requested-With'] = 'dyflorist';
+  if (json !== undefined) {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(json);
+  }
+  if (form) body = form;
+  const res = await fetch('/api' + path, { method, headers, body, credentials: 'same-origin' });
+  let data = null;
+  try { data = await res.json(); } catch (e) { /* bukan JSON */ }
+  if (!res.ok) {
+    const err = new Error((data && data.error) || 'Terjadi kesalahan, coba lagi.');
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
+// ==========================================
+// 1. PRODUK (diambil dari server)
+// ==========================================
+let PRODUCTS = [];
+let productsError = false;
+
+async function loadProducts() {
+  try {
+    PRODUCTS = await api('/products');
+    productsError = false;
+  } catch (e) {
+    productsError = true;
+  }
+  syncCartWithProducts();
+}
+
+// Samakan nama/harga/foto isi keranjang dengan data terbaru; buang produk yang sudah tidak ada
+function syncCartWithProducts() {
+  if (productsError) return;
+  const byId = new Map(PRODUCTS.map(p => [p.id, p]));
+  cart = cart.filter(i => byId.has(i.id)).map(i => {
+    const p = byId.get(i.id);
+    return { ...i, name: p.name, price: p.price, image: p.image };
+  });
+  saveCart();
+}
+
+// Baca keranjang dari localStorage dengan validasi bentuk data
+function loadCart() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('dy_florist_cart'));
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter(i => i && typeof i.id === 'string' && Number.isInteger(i.quantity) && i.quantity > 0)
+      .map(i => ({
+        id: i.id.slice(0, 40),
+        name: String(i.name ?? '').slice(0, 120),
+        price: Number.isFinite(i.price) ? i.price : 0,
+        image: String(i.image ?? ''),
+        quantity: Math.min(i.quantity, 50)
+      }));
+  } catch (e) {
+    return [];
+  }
+}
+
+// ==========================================
+// Pengganti atribut onclick/onchange inline (agar CSP bisa memblokir skrip inline)
+// ==========================================
+const ALLOWED_ACTIONS = new Set([
+  'filterCatalog', 'resetFilters', 'switchAdminTab', 'startEditProduct', 'deleteProduct', 'removeFromCart',
+  'changeCartQty', 'openQuickView', 'openAdminModal', 'handleAdminLogout', 'clearOrdersLog', 'cancelEditProduct',
+  'addToCart', 'closeQuickView', 'closeCart', 'goCatalog', 'handleProductImageUpload', 'filterAdminProducts',
+  'saveAdminProduct', 'handleAdminLogin'
+]);
+
+function runActions(spec, el) {
+  spec.split(';').map(s => s.trim()).filter(Boolean).forEach(stmt => {
+    const m = /^([A-Za-z_]\w*)\((.*)\)$/.exec(stmt);
+    if (!m || !ALLOWED_ACTIONS.has(m[1]) || typeof window[m[1]] !== 'function') return;
+    const args = m[2].trim() === '' ? [] : m[2].split(',').map(a => {
+      a = a.trim();
+      if (a === 'this') return el;
+      if (/^'.*'$/.test(a)) return a.slice(1, -1);
+      const n = Number(a);
+      return Number.isNaN(n) ? a : n;
+    });
+    window[m[1]](...args);
+  });
+}
+
+['click', 'submit', 'input', 'change'].forEach(type => {
+  document.addEventListener(type, ev => {
+    const el = ev.target && ev.target.closest ? ev.target.closest(`[data-${type}]`) : null;
+    if (!el) return;
+    if (type === 'submit') ev.preventDefault();
+    runActions(el.getAttribute(`data-${type}`), el);
+  });
+});
+
+// Foto gagal dimuat -> pakai foto cadangan
+document.addEventListener('error', ev => {
+  const el = ev.target;
+  if (el && el.tagName === 'IMG' && el.dataset.fallback && !el.dataset.fallbackUsed) {
+    el.dataset.fallbackUsed = '1';
+    el.src = el.dataset.fallback;
+  }
+}, true);
+
+window.goCatalog = function() {
+  location.href = '#catalog';
+};
 
 // WhatsApp Official Numbers
 const WA_PHONE_NUMBER = '6288267108077'; // Pesan via WhatsApp
@@ -228,7 +138,7 @@ const WA_CS_NUMBER = '6287871897450';    // Layanan Pelanggan
 // ==========================================
 // 2. STATE MANAGEMENT
 // ==========================================
-let cart = JSON.parse(localStorage.getItem('dy_florist_cart')) || [];
+let cart = loadCart();
 let activeFilter = 'all';
 let searchQuery = '';
 
@@ -238,7 +148,7 @@ const customizerState = {
     type: 'bouquet',
     name: 'Hand Bouquet Korean',
     price: 280000,
-    image: './assets/bouquet.jpg'
+    image: '/assets/bouquet.jpg'
   },
   color: 'Signature Rose Magenta',
   wrap: 'Matte Blush Pink + Ivory Silk',
@@ -251,7 +161,15 @@ const customizerState = {
 // 3. INITIALIZATION
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-  renderCatalog();
+  const gridEl = document.getElementById('productsGrid');
+  if (gridEl) gridEl.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; padding: 32px; color: var(--color-text-muted);">Memuat produk...</p>';
+  loadProducts().then(() => {
+    if (productsError && gridEl) {
+      gridEl.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; padding: 32px; color: var(--color-text-muted);">Produk gagal dimuat. Silakan muat ulang halaman.</p>';
+    } else {
+      renderCatalog();
+    }
+  });
   setupFilterTabs();
   setupSearch();
   setupCustomizer();
@@ -298,23 +216,23 @@ function renderCatalog() {
   if (emptyState) emptyState.style.display = 'none';
 
   grid.innerHTML = filtered.map(item => `
-    <article class="product-card" data-id="${item.id}">
-      <span class="product-badge-tag">${item.badge}</span>
+    <article class="product-card" data-id="${esc(item.id)}">
+      <span class="product-badge-tag">${esc(item.badge)}</span>
       <div class="product-img-wrap">
-        <img src="${item.image}" alt="${item.name}" loading="lazy">
-        <button class="product-quick-view-btn" onclick="openQuickView('${item.id}')">
+        <img src="${esc(safeImg(item.image))}" alt="${esc(item.name)}" loading="lazy">
+        <button class="product-quick-view-btn" data-click="openQuickView('${esc(item.id)}')">
           Detail Produk 👁️
         </button>
       </div>
       <div class="product-info">
-        <div class="product-category-meta">${item.categoryName}</div>
-        <h3 class="product-title">${item.name}</h3>
+        <div class="product-category-meta">${esc(item.categoryName)}</div>
+        <h3 class="product-title">${esc(item.name)}</h3>
         <div class="product-rating">
           ★★★★★ <span>(${item.reviews})</span>
         </div>
         <div class="product-price-row">
           <span class="product-price">${formatIDR(item.price)}</span>
-          <button class="add-cart-icon-btn" onclick="addToCart('${item.id}')" title="Tambah ke Keranjang" aria-label="Tambah ${item.name} ke Keranjang">
+          <button class="add-cart-icon-btn" data-click="addToCart('${esc(item.id)}')" title="Tambah ke Keranjang" aria-label="Tambah ${esc(item.name)} ke Keranjang">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -382,10 +300,10 @@ function setupCustomizer() {
   // Base Type Selection
   const baseButtons = document.querySelectorAll('#customBaseOptions .option-pill');
   const baseImages = {
-    bouquet: './assets/bouquet.jpg',
-    bloombox: './assets/bloom_box.jpg',
-    dome: './assets/dome.jpg',
-    hamper: './assets/gift.jpg'
+    bouquet: '/assets/bouquet.jpg',
+    bloombox: '/assets/bloom_box.jpg',
+    dome: '/assets/dome.jpg',
+    hamper: '/assets/gift.jpg'
   };
 
   baseButtons.forEach(btn => {
@@ -401,7 +319,7 @@ function setupCustomizer() {
         type: val,
         name: name,
         price: price,
-        image: baseImages[val] || './assets/bouquet.jpg'
+        image: baseImages[val] || '/assets/bouquet.jpg'
       };
 
       updateCustomizerSummary();
@@ -418,7 +336,7 @@ function setupCustomizer() {
       const color = btn.dataset.color;
       customizerState.color = color;
       if (colorLabel) {
-        colorLabel.innerHTML = `Warna Terpilih: <strong>${color}</strong>`;
+        colorLabel.innerHTML = `Warna Terpilih: <strong>${esc(color)}</strong>`;
       }
       updateCustomizerSummary();
     });
@@ -541,7 +459,7 @@ function sendCustomOrderToWhatsApp() {
                `Halo Florist dy.florist, saya ingin memesan rangkaian custom di atas. Mohon konfirmasi ketersediaan dan detail pengirimannya. Terima kasih! ✨`;
 
   const waUrl = `https://wa.me/${WA_PHONE_NUMBER}?text=${encodeURIComponent(text)}`;
-  window.open(waUrl, '_blank');
+  window.open(waUrl, '_blank', 'noopener,noreferrer');
 }
 
 // ==========================================
@@ -569,7 +487,7 @@ window.addToCart = function(productId) {
 
   const existingIndex = cart.findIndex(i => i.id === productId);
   if (existingIndex > -1) {
-    cart[existingIndex].quantity += 1;
+    cart[existingIndex].quantity = Math.min(50, cart[existingIndex].quantity + 1);
   } else {
     cart.push({
       id: product.id,
@@ -588,7 +506,7 @@ window.addToCart = function(productId) {
 window.changeCartQty = function(productId, delta) {
   const itemIndex = cart.findIndex(i => i.id === productId);
   if (itemIndex > -1) {
-    cart[itemIndex].quantity += delta;
+    cart[itemIndex].quantity = Math.min(50, cart[itemIndex].quantity + delta);
     if (cart[itemIndex].quantity <= 0) {
       cart.splice(itemIndex, 1);
     }
@@ -663,17 +581,17 @@ function renderCartDrawer() {
   if (list) {
     list.innerHTML = cart.map(item => `
       <div class="cart-item">
-        <img src="${item.image}" alt="${item.name}" class="cart-item-img">
+        <img src="${esc(safeImg(item.image))}" alt="${esc(item.name)}" class="cart-item-img">
         <div class="cart-item-info">
-          <div class="cart-item-title">${item.name}</div>
+          <div class="cart-item-title">${esc(item.name)}</div>
           <div class="cart-item-price">${formatIDR(item.price)}</div>
           <div class="cart-item-qty">
-            <button class="qty-btn" onclick="changeCartQty('${item.id}', -1)">-</button>
+            <button class="qty-btn" data-click="changeCartQty('${esc(item.id)}', -1)">-</button>
             <span class="qty-val">${item.quantity}</span>
-            <button class="qty-btn" onclick="changeCartQty('${item.id}', 1)">+</button>
+            <button class="qty-btn" data-click="changeCartQty('${esc(item.id)}', 1)">+</button>
           </div>
         </div>
-        <button class="cart-item-remove" onclick="removeFromCart('${item.id}')" title="Hapus">✕</button>
+        <button class="cart-item-remove" data-click="removeFromCart('${esc(item.id)}')" title="Hapus">✕</button>
       </div>
     `).join('');
   }
@@ -705,21 +623,19 @@ function checkoutCartWhatsApp() {
                `*Pesan Kartu Ucapan:*\n"${note}"\n\n` +
                `Halo Florist dy.florist, saya ingin konfirmasi pesanan ini. Mohon info nomor rekening & ketersediaan. Terima kasih! ✨`;
 
-  // Save order to Admin Orders Log
-  const newOrder = {
-    id: 'ord-' + Date.now(),
-    date: new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }),
-    recipient: recipient,
-    scheduled: date,
-    note: note,
-    total: subtotal,
-    items: cart.map(i => ({ name: i.name, qty: i.quantity, price: i.price }))
-  };
-  ordersLog.unshift(newOrder);
-  localStorage.setItem('dy_florist_orders_log', JSON.stringify(ordersLog));
+  // Simpan pesanan di server (total dihitung ulang server). Gagal pun WhatsApp tetap dibuka.
+  api('/orders', {
+    method: 'POST',
+    json: {
+      recipient: recipient.slice(0, 120),
+      scheduled: date.slice(0, 120),
+      note: note.slice(0, 500),
+      items: cart.map(i => ({ id: i.id, qty: i.quantity }))
+    }
+  }).catch(() => {});
 
   const waUrl = `https://wa.me/${WA_PHONE_NUMBER}?text=${encodeURIComponent(text)}`;
-  window.open(waUrl, '_blank');
+  window.open(waUrl, '_blank', 'noopener,noreferrer');
 }
 
 // ==========================================
@@ -750,16 +666,16 @@ window.openQuickView = function(productId) {
     body.innerHTML = `
       <div class="modal-product-layout">
         <div class="modal-img-col">
-          <img src="${product.image}" alt="${product.name}">
+          <img src="${esc(safeImg(product.image))}" alt="${esc(product.name)}">
         </div>
         <div class="modal-details-col">
-          <span class="modal-category">${product.categoryName} • ${product.badge}</span>
-          <h2 class="modal-title">${product.name}</h2>
+          <span class="modal-category">${esc(product.categoryName)} • ${esc(product.badge)}</span>
+          <h2 class="modal-title">${esc(product.name)}</h2>
           <div class="product-rating" style="margin-bottom: 12px;">
             ★★★★★ <span>(${product.reviews} ulasan pembeli)</span>
           </div>
           <div class="modal-price">${formatIDR(product.price)}</div>
-          <p class="modal-desc">${product.description}</p>
+          <p class="modal-desc">${esc(product.description)}</p>
           
           <div class="modal-meta-box">
             <div>🌿 <strong>Kualitas:</strong> Bunga segar pilihan premium atau preserved grade A</div>
@@ -767,7 +683,7 @@ window.openQuickView = function(productId) {
           </div>
 
           <div style="display: flex; gap: 12px; margin-top: auto;">
-            <button class="btn btn-primary" style="flex: 1;" onclick="addToCart('${product.id}'); closeQuickView();">
+            <button class="btn btn-primary" style="flex: 1;" data-click="addToCart('${esc(product.id)}'); closeQuickView();">
               Tambah ke Keranjang
             </button>
             <a href="https://wa.me/${WA_PHONE_NUMBER}?text=Halo%20dy.florist,%20saya%20tertarik%20dengan%20${encodeURIComponent(product.name)}" target="_blank" class="btn btn-glass" style="flex: 1;">
@@ -851,9 +767,9 @@ function showToast(message) {
 
   const toast = document.createElement('div');
   toast.className = 'toast';
-  toast.innerHTML = `
-    <span>${message}</span>
-  `;
+  const span = document.createElement('span');
+  span.textContent = message;
+  toast.appendChild(span);
 
   container.appendChild(toast);
   setTimeout(() => {
@@ -864,25 +780,10 @@ function showToast(message) {
 }
 
 // ==========================================
-// 11. ADMIN PORTAL & CRUD OPERATIONS
+// 11. ADMIN PORTAL (login & data lewat API server)
 // ==========================================
-const ADMIN_SECRET_PIN = '144172';
-const ADMIN_MAX_ATTEMPTS = 3;
-const ADMIN_LOCK_MS = 15 * 60 * 1000; // blokir 15 menit
-const ADMIN_LOCK_KEY = 'dy_florist_admin_lock';
-
-function getAdminLockState() {
-  try {
-    return JSON.parse(localStorage.getItem(ADMIN_LOCK_KEY)) || { fails: 0, until: 0 };
-  } catch (e) {
-    return { fails: 0, until: 0 };
-  }
-}
-
-function getAdminLockRemainingMs() {
-  return Math.max(0, getAdminLockState().until - Date.now());
-}
-let isAdminLoggedIn = sessionStorage.getItem('dy_florist_admin_auth') === 'true';
+let isAdminLoggedIn = false;
+let ADMIN_ORDERS = [];
 
 function setupAdmin() {
   const openBtn = document.getElementById('openAdminBtn');
@@ -902,16 +803,33 @@ function setupAdmin() {
   }
 }
 
-window.openAdminModal = function() {
+// Panggilan API admin: jika sesi habis (401) kembali ke layar login
+async function adminApi(path, opts) {
+  try {
+    return await api(path, opts);
+  } catch (e) {
+    if (e.status === 401) {
+      isAdminLoggedIn = false;
+      showAdminLogin();
+      showToast('Sesi berakhir. Silakan login kembali.');
+    }
+    throw e;
+  }
+}
+
+window.openAdminModal = async function() {
   const overlay = document.getElementById('adminModalOverlay');
   if (!overlay) return;
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
 
-  if (isAdminLoggedIn) {
-    showAdminDashboard();
-  } else {
-    showAdminLogin();
+  showAdminLogin();
+  try {
+    await api('/admin/session');
+    isAdminLoggedIn = true;
+    await showAdminDashboard();
+  } catch (e) {
+    isAdminLoggedIn = false;
   }
 };
 
@@ -928,67 +846,66 @@ function showAdminLogin() {
 
   if (loginView) loginView.style.display = 'block';
   if (dashView) dashView.style.display = 'none';
-  if (headerTitle) headerTitle.innerText = 'Admin Authentication';
+  if (headerTitle) headerTitle.textContent = 'Admin Authentication';
 
-  const pinInput = document.getElementById('adminPinInput');
-  if (pinInput) {
-    pinInput.value = '';
-    setTimeout(() => pinInput.focus(), 150);
+  const pwInput = document.getElementById('adminPasswordInput');
+  if (pwInput) {
+    pwInput.value = '';
+    setTimeout(() => pwInput.focus(), 150);
   }
 }
 
-function showAdminDashboard() {
+async function showAdminDashboard() {
   const loginView = document.getElementById('adminLoginView');
   const dashView = document.getElementById('adminDashboardView');
   const headerTitle = document.getElementById('adminHeaderTitle');
 
   if (loginView) loginView.style.display = 'none';
   if (dashView) dashView.style.display = 'block';
-  if (headerTitle) headerTitle.innerText = 'Admin Control Center';
+  if (headerTitle) headerTitle.textContent = 'Admin Control Center';
 
   renderAdminProductsTable();
+  try {
+    ADMIN_ORDERS = await adminApi('/admin/orders');
+  } catch (e) {
+    ADMIN_ORDERS = [];
+  }
   renderAdminOrdersTable();
   updateAdminBadges();
 }
 
-window.handleAdminLogin = function() {
-  const pinInput = document.getElementById('adminPinInput');
-  const pin = pinInput?.value.trim();
+window.handleAdminLogin = async function() {
+  const pwInput = document.getElementById('adminPasswordInput');
+  const password = pwInput?.value ?? '';
+  if (!password) return;
 
-  const remaining = getAdminLockRemainingMs();
-  if (remaining > 0) {
-    showToast(`Login diblokir. Coba lagi dalam ${Math.ceil(remaining / 60000)} menit.`);
-    if (pinInput) pinInput.value = '';
-    return;
-  }
-
-  if (pin === ADMIN_SECRET_PIN) {
-    localStorage.removeItem(ADMIN_LOCK_KEY);
+  const submitBtn = document.querySelector('#adminLoginForm button[type="submit"]');
+  if (submitBtn) submitBtn.disabled = true;
+  try {
+    await api('/admin/login', { method: 'POST', json: { password } });
     isAdminLoggedIn = true;
-    sessionStorage.setItem('dy_florist_admin_auth', 'true');
+    if (pwInput) pwInput.value = '';
     showToast('Berhasil masuk sebagai Admin! 🌸');
-    showAdminDashboard();
-  } else {
-    const state = getAdminLockState();
-    // Jika blokir sebelumnya sudah lewat, hitung ulang dari nol
-    const fails = (state.until && state.until <= Date.now() ? 0 : state.fails) + 1;
-    if (fails >= ADMIN_MAX_ATTEMPTS) {
-      localStorage.setItem(ADMIN_LOCK_KEY, JSON.stringify({ fails: 0, until: Date.now() + ADMIN_LOCK_MS }));
-      showToast(`PIN salah ${ADMIN_MAX_ATTEMPTS}x. Login diblokir ${ADMIN_LOCK_MS / 60000} menit.`);
-    } else {
-      localStorage.setItem(ADMIN_LOCK_KEY, JSON.stringify({ fails, until: 0 }));
-      showToast(`PIN Admin salah! Sisa percobaan: ${ADMIN_MAX_ATTEMPTS - fails}.`);
+    await showAdminDashboard();
+  } catch (e) {
+    showToast(e.message || 'Login gagal.');
+    if (pwInput) {
+      pwInput.value = '';
+      pwInput.focus();
     }
-    if (pinInput) {
-      pinInput.value = '';
-      pinInput.focus();
-    }
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
   }
 };
 
-window.handleAdminLogout = function() {
+window.handleAdminLogout = async function() {
+  try {
+    await api('/admin/logout', { method: 'POST' });
+  } catch (e) {
+    /* tetap keluar di sisi tampilan */
+  }
   isAdminLoggedIn = false;
-  sessionStorage.removeItem('dy_florist_admin_auth');
+  ADMIN_ORDERS = [];
   showToast('Anda telah keluar dari mode Admin.');
   showAdminLogin();
 };
@@ -1016,8 +933,8 @@ function updateAdminBadges() {
   const totalCountEl = document.getElementById('adminTotalCount');
   const ordersCountEl = document.getElementById('adminOrdersCount');
 
-  if (totalCountEl) totalCountEl.innerText = PRODUCTS.length;
-  if (ordersCountEl) ordersCountEl.innerText = ordersLog.length;
+  if (totalCountEl) totalCountEl.textContent = PRODUCTS.length;
+  if (ordersCountEl) ordersCountEl.textContent = ADMIN_ORDERS.length;
 }
 
 window.renderAdminProductsTable = function() {
@@ -1041,22 +958,22 @@ window.renderAdminProductsTable = function() {
   tbody.innerHTML = filtered.map(item => `
     <tr>
       <td>
-        <img src="${item.image}" alt="${item.name}" onerror="this.src='./assets/bouquet.jpg'">
+        <img src="${esc(safeImg(item.image))}" alt="${esc(item.name)}" data-fallback="/assets/bouquet.jpg">
       </td>
       <td>
-        <strong>${item.name}</strong>
+        <strong>${esc(item.name)}</strong>
         <div style="font-size: 0.75rem; color: var(--color-text-muted); max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-          ${item.description || ''}
+          ${esc(item.description || '')}
         </div>
       </td>
-      <td><span class="category-tag" style="text-transform: capitalize;">${item.categoryName || item.category}</span></td>
+      <td><span class="category-tag" style="text-transform: capitalize;">${esc(item.categoryName || item.category)}</span></td>
       <td style="font-weight: 600; color: var(--color-primary);">${formatIDR(item.price)}</td>
       <td>
-        ${item.badge ? `<span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: var(--color-primary-soft); color: var(--color-primary); font-weight: 600;">${item.badge}</span>` : '-'}
+        ${item.badge ? `<span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: var(--color-primary-soft); color: var(--color-primary); font-weight: 600;">${esc(item.badge)}</span>` : '-'}
       </td>
       <td>
-        <button class="btn-action-edit" onclick="startEditProduct('${item.id}')">Edit</button>
-        <button class="btn-action-delete" onclick="deleteProduct('${item.id}')">Hapus</button>
+        <button class="btn-action-edit" data-click="startEditProduct('${esc(item.id)}')">Edit</button>
+        <button class="btn-action-delete" data-click="deleteProduct('${esc(item.id)}')">Hapus</button>
       </td>
     </tr>
   `).join('');
@@ -1065,6 +982,18 @@ window.renderAdminProductsTable = function() {
 window.filterAdminProducts = function() {
   renderAdminProductsTable();
 };
+
+function setProductImagePreview(src) {
+  const img = document.getElementById('prodImagePreview');
+  if (!img) return;
+  if (src && SAFE_IMAGE.test(src)) {
+    img.src = src;
+    img.style.display = 'block';
+  } else {
+    img.removeAttribute('src');
+    img.style.display = 'none';
+  }
+}
 
 window.startEditProduct = function(id) {
   const item = PRODUCTS.find(p => p.id === id);
@@ -1076,31 +1005,45 @@ window.startEditProduct = function(id) {
   document.getElementById('prodPrice').value = item.price;
   document.getElementById('prodBadge').value = item.badge || '';
   document.getElementById('prodImage').value = item.image;
-  setProductImagePreview(item.image);
   document.getElementById('prodDescription').value = item.description || '';
+  setProductImagePreview(item.image);
 
-  document.getElementById('saveBtnText').innerText = 'Simpan Perubahan';
+  document.getElementById('saveBtnText').textContent = 'Simpan Perubahan';
   switchAdminTab('add');
 };
 
 window.cancelEditProduct = function() {
   document.getElementById('adminProductForm')?.reset();
+  document.getElementById('editProductId').value = '';
   document.getElementById('prodImage').value = '';
   setProductImagePreview('');
-  document.getElementById('editProductId').value = '';
-  document.getElementById('saveBtnText').innerText = 'Simpan Produk';
+  document.getElementById('saveBtnText').textContent = 'Simpan Produk';
   switchAdminTab('products');
 };
 
-function setProductImagePreview(src) {
-  const img = document.getElementById('prodImagePreview');
-  if (!img) return;
-  img.src = src || '';
-  img.style.display = src ? 'block' : 'none';
+// Perkecil foto di browser (maks 1200px, JPEG) lalu upload ke server
+function resizeImageToBlob(file, maxSide = 1200, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(b => (b ? resolve(b) : reject(new Error('Gagal memproses gambar'))), 'image/jpeg', quality);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Gambar tidak bisa dibaca'));
+    };
+    img.src = url;
+  });
 }
 
-// Upload foto: diperkecil (maks 800px) lalu disimpan sebagai data URL JPEG
-window.handleProductImageUpload = function(input) {
+window.handleProductImageUpload = async function(input) {
   const file = input.files && input.files[0];
   if (!file) return;
   if (!file.type.startsWith('image/')) {
@@ -1108,118 +1051,81 @@ window.handleProductImageUpload = function(input) {
     input.value = '';
     return;
   }
-  const reader = new FileReader();
-  reader.onload = () => {
-    const img = new Image();
-    img.onload = () => {
-      const MAX = 800;
-      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      document.getElementById('prodImage').value = dataUrl;
-      setProductImagePreview(dataUrl);
-    };
-    img.onerror = () => showToast('Gambar tidak bisa dibaca.');
-    img.src = reader.result;
-  };
-  reader.readAsDataURL(file);
+  const saveBtn = document.getElementById('btnSaveProduct');
+  if (saveBtn) saveBtn.disabled = true;
+  showToast('Mengunggah foto...');
+  try {
+    const blob = await resizeImageToBlob(file);
+    const form = new FormData();
+    form.set('file', blob, 'foto.jpg');
+    const { url } = await adminApi('/admin/upload', { method: 'POST', form });
+    document.getElementById('prodImage').value = url;
+    setProductImagePreview(url);
+    showToast('Foto berhasil diunggah.');
+  } catch (e) {
+    showToast(e.message || 'Upload foto gagal.');
+    input.value = '';
+  } finally {
+    if (saveBtn) saveBtn.disabled = false;
+  }
 };
 
-const CATEGORY_NAMES = {
-  florist: 'Florist',
-  gift: 'Gift & Hampers',
-  craft: 'Craft & Preserved',
-  coffee: 'Cafe & Treats'
-};
-
-window.saveAdminProduct = function() {
+window.saveAdminProduct = async function() {
   const id = document.getElementById('editProductId').value;
-  const name = document.getElementById('prodName').value.trim();
-  const category = document.getElementById('prodCategory').value;
-  const price = parseInt(document.getElementById('prodPrice').value, 10);
-  const badge = document.getElementById('prodBadge').value.trim();
-  const image = document.getElementById('prodImage').value.trim();
-  const description = document.getElementById('prodDescription').value.trim();
+  const payload = {
+    name: document.getElementById('prodName').value.trim(),
+    category: document.getElementById('prodCategory').value,
+    price: parseInt(document.getElementById('prodPrice').value, 10),
+    badge: document.getElementById('prodBadge').value.trim(),
+    image: document.getElementById('prodImage').value.trim(),
+    description: document.getElementById('prodDescription').value.trim()
+  };
 
-  if (!image) {
+  if (!payload.image) {
     showToast('Silakan upload foto produk terlebih dahulu.');
     return;
   }
-
-  if (id) {
-    // Edit existing product
-    const idx = PRODUCTS.findIndex(p => p.id === id);
-    if (idx !== -1) {
-      PRODUCTS[idx] = {
-        ...PRODUCTS[idx],
-        name,
-        category,
-        categoryName: CATEGORY_NAMES[category] || category,
-        price,
-        badge,
-        image,
-        description
-      };
-      showToast(`Produk "${name}" berhasil diperbarui! ✨`);
-    }
-  } else {
-    // Add new product
-    const newProduct = {
-      id: 'prod_' + Date.now(),
-      name,
-      category,
-      categoryName: CATEGORY_NAMES[category] || category,
-      price,
-      rating: 5.0,
-      reviews: 1,
-      badge: badge || 'New Arrival',
-      image,
-      description
-    };
-    PRODUCTS.unshift(newProduct);
-    showToast(`Produk baru "${name}" berhasil ditambahkan! 🌸`);
-  }
-
-  // Persist to local storage
-  try {
-    localStorage.setItem('dy_florist_custom_products', JSON.stringify(PRODUCTS));
-  } catch (e) {
-    showToast('Penyimpanan browser penuh. Hapus beberapa produk atau pakai foto lebih kecil.');
+  if (!Number.isInteger(payload.price) || payload.price < 0) {
+    showToast('Harga tidak valid.');
     return;
   }
-  
-  // Re-render both admin table and main customer catalog
-  renderAdminProductsTable();
-  renderCatalog();
-  updateAdminBadges();
-  cancelEditProduct();
+
+  const saveBtn = document.getElementById('btnSaveProduct');
+  if (saveBtn) saveBtn.disabled = true;
+  try {
+    if (id) {
+      await adminApi('/admin/products/' + encodeURIComponent(id), { method: 'PUT', json: payload });
+      showToast(`Produk "${payload.name}" berhasil diperbarui! ✨`);
+    } else {
+      await adminApi('/admin/products', { method: 'POST', json: payload });
+      showToast(`Produk baru "${payload.name}" berhasil ditambahkan! 🌸`);
+    }
+    await loadProducts();
+    renderCatalog();
+    updateAdminBadges();
+    cancelEditProduct();
+  } catch (e) {
+    showToast(e.message || 'Gagal menyimpan produk.');
+  } finally {
+    if (saveBtn) saveBtn.disabled = false;
+  }
 };
 
-window.deleteProduct = function(id) {
+window.deleteProduct = async function(id) {
   const item = PRODUCTS.find(p => p.id === id);
   if (!item) return;
 
   if (confirm(`Yakin ingin menghapus produk "${item.name}" dari katalog?`)) {
-    PRODUCTS = PRODUCTS.filter(p => p.id !== id);
-    localStorage.setItem('dy_florist_custom_products', JSON.stringify(PRODUCTS));
-    renderAdminProductsTable();
-    renderCatalog();
-    updateAdminBadges();
-    showToast(`Produk "${item.name}" telah dihapus.`);
-  }
-};
-
-window.resetProductsToDefault = function() {
-  if (confirm('Apakah Anda yakin ingin mereset seluruh katalog kembali ke produk default awal? Semua produk baru / editan akan dihapus.')) {
-    PRODUCTS = [...DEFAULT_PRODUCTS];
-    localStorage.removeItem('dy_florist_custom_products');
-    renderAdminProductsTable();
-    renderCatalog();
-    updateAdminBadges();
-    showToast('Katalog telah di-reset ke pengaturan awal.');
+    try {
+      await adminApi('/admin/products/' + encodeURIComponent(id), { method: 'DELETE' });
+      await loadProducts();
+      renderAdminProductsTable();
+      renderCatalog();
+      updateAdminBadges();
+      showToast(`Produk "${item.name}" telah dihapus.`);
+    } catch (e) {
+      showToast(e.message || 'Gagal menghapus produk.');
+    }
   }
 };
 
@@ -1227,34 +1133,37 @@ window.renderAdminOrdersTable = function() {
   const tbody = document.getElementById('adminOrdersTableBody');
   if (!tbody) return;
 
-  if (ordersLog.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--color-text-muted);">Belum ada riwayat pesanan yang masuk melalui WhatsApp checkout.</td></tr>`;
+  if (ADMIN_ORDERS.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--color-text-muted);">Belum ada pesanan yang masuk.</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = ordersLog.map(ord => `
+  tbody.innerHTML = ADMIN_ORDERS.map(ord => `
     <tr>
-      <td style="white-space: nowrap; font-size: 0.78rem;">${ord.date}</td>
-      <td><strong>${ord.recipient}</strong></td>
-      <td style="font-size: 0.8rem;">${ord.scheduled}</td>
+      <td style="white-space: nowrap; font-size: 0.78rem;">${esc(new Date(ord.createdAt).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }))}</td>
+      <td><strong>${esc(ord.recipient)}</strong></td>
+      <td style="font-size: 0.8rem;">${esc(ord.scheduled)}</td>
       <td style="font-weight: 700; color: var(--color-primary);">${formatIDR(ord.total)}</td>
       <td style="font-size: 0.8rem;">
         <ul style="padding-left: 16px; margin: 0;">
-          ${ord.items.map(it => `<li>${it.name} (x${it.qty})</li>`).join('')}
+          ${ord.items.map(it => `<li>${esc(it.name)} (x${esc(it.qty)})</li>`).join('')}
         </ul>
       </td>
-      <td style="font-size: 0.78rem; max-width: 160px; font-style: italic; color: var(--color-text-muted);">${ord.note || '-'}</td>
+      <td style="font-size: 0.78rem; max-width: 160px; font-style: italic; color: var(--color-text-muted);">${esc(ord.note || '-')}</td>
     </tr>
   `).join('');
 };
 
-window.clearOrdersLog = function() {
+window.clearOrdersLog = async function() {
   if (confirm('Hapus seluruh riwayat pesanan?')) {
-    ordersLog = [];
-    localStorage.removeItem('dy_florist_orders_log');
-    renderAdminOrdersTable();
-    updateAdminBadges();
-    showToast('Riwayat pesanan berhasil dibersihkan.');
+    try {
+      await adminApi('/admin/orders', { method: 'DELETE' });
+      ADMIN_ORDERS = [];
+      renderAdminOrdersTable();
+      updateAdminBadges();
+      showToast('Riwayat pesanan berhasil dibersihkan.');
+    } catch (e) {
+      showToast(e.message || 'Gagal menghapus riwayat.');
+    }
   }
 };
-

@@ -142,9 +142,10 @@ export const app = new Elysia({ prefix: '/api' })
   // ---------- Publik ----------
   .get('/health', () => ({ ok: true }))
 
-  .get('/products', async ({ set }) => {
-    const rows = await getDb().select().from(schema.products).orderBy(desc(schema.products.createdAt));
-    set.headers['cache-control'] = 'public, max-age=0, s-maxage=30, stale-while-revalidate=60';
+  .get('/products', async () => {
+    // Tanpa cache: perubahan dari admin harus langsung terlihat
+    const rows = await getDb().select().from(schema.products)
+      .orderBy(desc(schema.products.createdAt), desc(schema.products.id));
     return rows.map(toPublic);
   })
 
