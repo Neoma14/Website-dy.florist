@@ -230,7 +230,7 @@ function getCookie(request, name) {
   return void 0;
 }
 function allowedOrigins() {
-  const list = (process.env.ALLOWED_ORIGIN ?? "").split(",").map((s) => s.trim().replace(/\/+$/, "")).filter(Boolean);
+  const list = (process.env.ALLOWED_ORIGIN ?? "").split(",").map((s) => s.replace(/[^\x21-\x7e]/g, "").replace(/\/+$/, "")).filter(Boolean);
   if (process.env.VERCEL_ENV === "preview") {
     for (const host of [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL]) {
       if (host) list.push(`https://${host}`);
@@ -245,7 +245,9 @@ function csrfOk(request) {
   const allowed = allowedOrigins();
   const ok = !!origin && allowed.includes(origin);
   if (!ok) {
-    console.error(`CSRF ditolak: origin="${origin ?? ""}" tidak ada di ALLOWED_ORIGIN (terdaftar: ${allowed.length})`);
+    console.error(
+      `CSRF ditolak: origin="${origin ?? ""}" tidak ada di ALLOWED_ORIGIN (terdaftar: ${allowed.length}, panjang: [${allowed.map((a) => a.length).join(",")}], mentah: ${(process.env.ALLOWED_ORIGIN ?? "").length} karakter, env: ${process.env.VERCEL_ENV ?? "lokal"})`
+    );
   }
   return ok;
 }
