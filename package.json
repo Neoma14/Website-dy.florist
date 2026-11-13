@@ -6,20 +6,36 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "hash-password": "tsx scripts/hash-password.ts",
+    "db:migrate": "tsx --env-file=.env scripts/migrate.ts",
+    "db:seed": "tsx --env-file=.env scripts/seed.ts",
+    "test": "tsx --env-file=.env --test server/app.test.ts",
+    "typecheck": "tsc --noEmit"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Neoma14/Belajar-coding.git"
+    "url": "git+https://github.com/Neoma14/Website-dy.florist.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Neoma14/Belajar-coding/issues"
+    "url": "https://github.com/Neoma14/Website-dy.florist/issues"
   },
-  "homepage": "https://github.com/Neoma14/Belajar-coding#readme",
+  "homepage": "https://github.com/Neoma14/Website-dy.florist#readme",
   "devDependencies": {
+    "@types/node": "^26.6.6",
+    "drizzle-kit": "^0.31.11",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
     "vite": "^8.3.4"
+  },
+  "type": "module",
+  "dependencies": {
+    "@vercel/blob": "^2.9.0",
+    "drizzle-orm": "^0.45.4",
+    "elysia": "^1.4.32",
+    "mysql2": "^3.24.6"
   }
 }
