@@ -866,7 +866,22 @@ function showToast(message) {
 // ==========================================
 // 11. ADMIN PORTAL & CRUD OPERATIONS
 // ==========================================
-const ADMIN_SECRET_PIN = '1234';
+const ADMIN_SECRET_PIN = '144172';
+const ADMIN_MAX_ATTEMPTS = 3;
+const ADMIN_LOCK_MS = 15 * 60 * 1000; // blokir 15 menit
+const ADMIN_LOCK_KEY = 'dy_florist_admin_lock';
+
+function getAdminLockState() {
+  try {
+    return JSON.parse(localStorage.getItem(ADMIN_LOCK_KEY)) || { fails: 0, until: 0 };
+  } catch (e) {
+    return { fails: 0, until: 0 };
+  }
+}
+
+function getAdminLockRemainingMs() {
+  return Math.max(0, getAdminLockState().until - Date.now());
+}
 let isAdminLoggedIn = sessionStorage.getItem('dy_florist_admin_auth') === 'true';
 
 function setupAdmin() {
@@ -940,13 +955,30 @@ window.handleAdminLogin = function() {
   const pinInput = document.getElementById('adminPinInput');
   const pin = pinInput?.value.trim();
 
+  const remaining = getAdminLockRemainingMs();
+  if (remaining > 0) {
+    showToast(`Login diblokir. Coba lagi dalam ${Math.ceil(remaining / 60000)} menit.`);
+    if (pinInput) pinInput.value = '';
+    return;
+  }
+
   if (pin === ADMIN_SECRET_PIN) {
+    localStorage.removeItem(ADMIN_LOCK_KEY);
     isAdminLoggedIn = true;
     sessionStorage.setItem('dy_florist_admin_auth', 'true');
     showToast('Berhasil masuk sebagai Admin! 🌸');
     showAdminDashboard();
   } else {
-    showToast('PIN Admin salah! Silakan coba lagi.');
+    const state = getAdminLockState();
+    // Jika blokir sebelumnya sudah lewat, hitung ulang dari nol
+    const fails = (state.until && state.until <= Date.now() ? 0 : state.fails) + 1;
+    if (fails >= ADMIN_MAX_ATTEMPTS) {
+      localStorage.setItem(ADMIN_LOCK_KEY, JSON.stringify({ fails: 0, until: Date.now() + ADMIN_LOCK_MS }));
+      showToast(`PIN salah ${ADMIN_MAX_ATTEMPTS}x. Login diblokir ${ADMIN_LOCK_MS / 60000} menit.`);
+    } else {
+      localStorage.setItem(ADMIN_LOCK_KEY, JSON.stringify({ fails, until: 0 }));
+      showToast(`PIN Admin salah! Sisa percobaan: ${ADMIN_MAX_ATTEMPTS - fails}.`);
+    }
     if (pinInput) {
       pinInput.value = '';
       pinInput.focus();
@@ -1044,6 +1076,7 @@ window.startEditProduct = function(id) {
   document.getElementById('prodPrice').value = item.price;
   document.getElementById('prodBadge').value = item.badge || '';
   document.getElementById('prodImage').value = item.image;
+  setProductImagePreview(item.image);
   document.getElementById('prodDescription').value = item.description || '';
 
   document.getElementById('saveBtnText').innerText = 'Simpan Perubahan';
@@ -1052,9 +1085,47 @@ window.startEditProduct = function(id) {
 
 window.cancelEditProduct = function() {
   document.getElementById('adminProductForm')?.reset();
+  document.getElementById('prodImage').value = '';
+  setProductImagePreview('');
   document.getElementById('editProductId').value = '';
   document.getElementById('saveBtnText').innerText = 'Simpan Produk';
   switchAdminTab('products');
+};
+
+function setProductImagePreview(src) {
+  const img = document.getElementById('prodImagePreview');
+  if (!img) return;
+  img.src = src || '';
+  img.style.display = src ? 'block' : 'none';
+}
+
+// Upload foto: diperkecil (maks 800px) lalu disimpan sebagai data URL JPEG
+window.handleProductImageUpload = function(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    showToast('File harus berupa gambar.');
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 800;
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      document.getElementById('prodImage').value = dataUrl;
+      setProductImagePreview(dataUrl);
+    };
+    img.onerror = () => showToast('Gambar tidak bisa dibaca.');
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
 };
 
 const CATEGORY_NAMES = {
@@ -1072,6 +1143,11 @@ window.saveAdminProduct = function() {
   const badge = document.getElementById('prodBadge').value.trim();
   const image = document.getElementById('prodImage').value.trim();
   const description = document.getElementById('prodDescription').value.trim();
+
+  if (!image) {
+    showToast('Silakan upload foto produk terlebih dahulu.');
+    return;
+  }
 
   if (id) {
     // Edit existing product
@@ -1108,7 +1184,12 @@ window.saveAdminProduct = function() {
   }
 
   // Persist to local storage
-  localStorage.setItem('dy_florist_custom_products', JSON.stringify(PRODUCTS));
+  try {
+    localStorage.setItem('dy_florist_custom_products', JSON.stringify(PRODUCTS));
+  } catch (e) {
+    showToast('Penyimpanan browser penuh. Hapus beberapa produk atau pakai foto lebih kecil.');
+    return;
+  }
   
   // Re-render both admin table and main customer catalog
   renderAdminProductsTable();
