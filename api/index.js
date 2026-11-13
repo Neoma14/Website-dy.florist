@@ -227,7 +227,13 @@ function getCookie(request, name) {
   return void 0;
 }
 function allowedOrigins() {
-  return (process.env.ALLOWED_ORIGIN ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const list = (process.env.ALLOWED_ORIGIN ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (process.env.VERCEL_ENV === "preview") {
+    for (const host of [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL]) {
+      if (host) list.push(`https://${host}`);
+    }
+  }
+  return list;
 }
 function csrfOk(request) {
   if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return true;

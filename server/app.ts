@@ -52,7 +52,15 @@ function getCookie(request: Request, name: string): string | undefined {
 }
 
 function allowedOrigins(): string[] {
-  return (process.env.ALLOWED_ORIGIN ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  const list = (process.env.ALLOWED_ORIGIN ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  // Hanya di deploy Preview: izinkan alamat deploy itu sendiri (berganti tiap push).
+  // Preview dilindungi Vercel Authentication; Production tetap hanya memakai ALLOWED_ORIGIN.
+  if (process.env.VERCEL_ENV === 'preview') {
+    for (const host of [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL]) {
+      if (host) list.push(`https://${host}`);
+    }
+  }
+  return list;
 }
 
 /** Perlindungan CSRF untuk request admin yang mengubah data. */
