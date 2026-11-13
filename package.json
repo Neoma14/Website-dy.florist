@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && npm run build:api",
     "preview": "vite preview",
     "hash-password": "tsx scripts/hash-password.ts",
     "db:migrate": "tsx --env-file=.env scripts/migrate.ts",
@@ -15,7 +15,8 @@
     "dev:api": "tsx --env-file=.env scripts/dev-api.ts",
     "setup-db": "tsx scripts/setup-db.ts",
     "db:migrate:tidb": "tsx --env-file=.env.tidb scripts/migrate.ts",
-    "db:seed:tidb": "tsx --env-file=.env.tidb scripts/seed.ts"
+    "db:seed:tidb": "tsx --env-file=.env.tidb scripts/seed.ts",
+    "build:api": "esbuild server/handler.ts --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=api/index.js"
   },
   "repository": {
     "type": "git",
@@ -31,6 +32,7 @@
   "devDependencies": {
     "@types/node": "^26.6.6",
     "drizzle-kit": "^0.31.11",
+    "esbuild": "^0.28.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.4"
