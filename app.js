@@ -199,7 +199,15 @@ function renderCatalog() {
   const emptyState = document.getElementById('catalogEmpty');
   if (!grid) return;
 
+  // Cafe & coffee belum tersedia: tab menampilkan pemberitahuan, produknya disembunyikan
+  if (activeFilter === 'coffee') {
+    if (emptyState) emptyState.style.display = 'none';
+    grid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; padding: 48px 16px; color: var(--color-text-muted);">☕ Menu Cafe & Treats belum tersedia, masih dalam tahap pengembangan. Nantikan segera!</p>';
+    return;
+  }
+
   const filtered = PRODUCTS.filter(p => {
+    if (p.category === 'coffee') return false;
     const matchesCategory = activeFilter === 'all' || p.category === activeFilter;
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
