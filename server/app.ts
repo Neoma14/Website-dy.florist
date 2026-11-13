@@ -19,6 +19,8 @@ const CATEGORIES: Record<string, string> = {
 
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // batas body Vercel Functions ~4.5 MB
 const UPLOAD_DIR = join(process.cwd(), '.uploads'); // hanya untuk pengembangan lokal
+// Vercel Blob bisa memakai token (BLOB_READ_WRITE_TOKEN) atau OIDC (BLOB_STORE_ID)
+const blobConfigured = () => !!(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
 const isProd = () => process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
 
 const IMAGE_PATTERNS = [
@@ -74,7 +76,7 @@ function sessionCookie(value: string, expires: Date | null): string {
 
 async function storeImage(buf: Uint8Array, ext: string, contentType: string): Promise<string> {
   const name = randomBytes(16).toString('hex');
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
+  if (blobConfigured()) {
     const { put } = await import('@vercel/blob');
     const blob = await put(`products/${name}.${ext}`, Buffer.from(buf), {
       access: 'public', contentType, addRandomSuffix: false,
@@ -88,7 +90,7 @@ async function storeImage(buf: Uint8Array, ext: string, contentType: string): Pr
 }
 
 async function removeImage(url: string) {
-  if (!url.includes('.public.blob.vercel-storage.com/') || !process.env.BLOB_READ_WRITE_TOKEN) return;
+  if (!url.includes('.public.blob.vercel-storage.com/') || !blobConfigured()) return;
   try {
     const { del } = await import('@vercel/blob');
     await del(url);

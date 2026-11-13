@@ -12,7 +12,10 @@
     "db:seed": "tsx --env-file=.env scripts/seed.ts",
     "test": "tsx --env-file=.env --test server/app.test.ts",
     "typecheck": "tsc --noEmit",
-    "dev:api": "tsx --env-file=.env scripts/dev-api.ts"
+    "dev:api": "tsx --env-file=.env scripts/dev-api.ts",
+    "setup-db": "tsx scripts/setup-db.ts",
+    "db:migrate:tidb": "tsx --env-file=.env.tidb scripts/migrate.ts",
+    "db:seed:tidb": "tsx --env-file=.env.tidb scripts/seed.ts"
   },
   "repository": {
     "type": "git",

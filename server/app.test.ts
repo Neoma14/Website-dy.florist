@@ -7,6 +7,7 @@ const ORIGIN = 'http://localhost:5173';
 process.env.ALLOWED_ORIGIN = ORIGIN;
 process.env.ADMIN_PASSWORD_HASH = await hashPassword(PASSWORD);
 delete process.env.BLOB_READ_WRITE_TOKEN;
+delete process.env.BLOB_STORE_ID;
 
 const { app } = await import('./app');
 const { getDb, schema } = await import('./db');
