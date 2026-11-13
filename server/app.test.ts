@@ -88,6 +88,18 @@ test('login tanpa header CSRF / origin salah ditolak (403)', async () => {
   assert.equal(badOrigin.status, 403);
 });
 
+test('CSRF: Origin sama dengan host situs diterima; Origin situs lain ditolak', async () => {
+  const body = JSON.stringify({ password: PASSWORD });
+  const mk = (origin: string) => call('/api/admin/login', {
+    method: 'POST', admin: false,
+    headers: { origin, 'x-requested-with': 'dyflorist', host: 'www.toko-saya.test', 'content-type': 'application/json' },
+    body,
+  });
+  assert.equal((await mk('https://www.toko-saya.test')).status, 200); // same-origin
+  assert.equal((await mk('https://evil.example')).status, 403);       // situs lain
+  assert.equal((await mk('http://www.toko-saya.test')).status, 403);  // skema berbeda
+});
+
 test('login berhasil: cookie HttpOnly + SameSite=Strict, sesi valid, logout mencabut sesi', async () => {
   const ip = newIp();
   const res = await call('/api/admin/login', { method: 'POST', ip, ...json({ password: PASSWORD }) });

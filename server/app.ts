@@ -77,7 +77,13 @@ function csrfOk(request: Request): boolean {
   if (request.headers.get('x-requested-with') !== 'dyflorist') return false;
   const origin = request.headers.get('origin');
   const allowed = allowedOrigins();
-  const ok = !!origin && allowed.includes(origin);
+  // Same-origin: Origin harus sama dengan alamat situs ini sendiri. Browser tidak bisa memalsukan
+  // header Origin, jadi situs lain tidak bisa menyuruh browser admin melakukan aksi.
+  const host = (request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? '')
+    .split(',')[0]
+    .replace(/[^\x21-\x7e]/g, '');
+  const sameOrigin = !!origin && !!host && origin === `https://${host}`;
+  const ok = !!origin && (sameOrigin || allowed.includes(origin));
   if (!ok) {
     // Alamat situs bukan rahasia; log ini membantu menemukan salah ketik di ALLOWED_ORIGIN
     console.error(

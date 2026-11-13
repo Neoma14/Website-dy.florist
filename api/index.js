@@ -243,7 +243,9 @@ function csrfOk(request) {
   if (request.headers.get("x-requested-with") !== "dyflorist") return false;
   const origin = request.headers.get("origin");
   const allowed = allowedOrigins();
-  const ok = !!origin && allowed.includes(origin);
+  const host = (request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "").split(",")[0].replace(/[^\x21-\x7e]/g, "");
+  const sameOrigin = !!origin && !!host && origin === `https://${host}`;
+  const ok = !!origin && (sameOrigin || allowed.includes(origin));
   if (!ok) {
     console.error(
       `CSRF ditolak: origin="${origin ?? ""}" tidak ada di ALLOWED_ORIGIN (terdaftar: ${allowed.length}, panjang: [${allowed.map((a) => a.length).join(",")}], mentah: ${(process.env.ALLOWED_ORIGIN ?? "").length} karakter, env: ${process.env.VERCEL_ENV ?? "lokal"})`
