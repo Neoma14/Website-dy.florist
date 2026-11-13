@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { desc, eq, inArray } from 'drizzle-orm';
 import { getDb, schema } from './db';
-import { verifyPassword } from './lib/password';
+import { describeHash, verifyPassword } from './lib/password';
 import {
   SESSION_COOKIE, SESSION_TTL_MS, clearFailedLogins, clientIp, createSession, destroySession,
   detectImageType, hashIp, isValidSession, loginBlockedSeconds, rateLimited, recordFailedLogin,
@@ -220,6 +220,9 @@ export const app = new Elysia({ prefix: '/api' })
     const stored = process.env.ADMIN_PASSWORD_HASH ?? '';
     const ok = stored ? await verifyPassword(body.password, stored) : false;
     if (!ok) {
+      if (describeHash(stored) !== 'format benar') {
+        console.error('Login admin gagal: ADMIN_PASSWORD_HASH ' + describeHash(stored));
+      }
       await recordFailedLogin(ipHash);
       set.status = 401;
       return { error: 'Password salah' };
