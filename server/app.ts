@@ -55,7 +55,11 @@ function getCookie(request: Request, name: string): string | undefined {
 }
 
 function allowedOrigins(): string[] {
-  const list = (process.env.ALLOWED_ORIGIN ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  // Toleran terhadap spasi dan garis miring di akhir (mis. "https://www.dyflorist.site/")
+  const list = (process.env.ALLOWED_ORIGIN ?? '')
+    .split(',')
+    .map((s) => s.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
   // Hanya di deploy Preview: izinkan alamat deploy itu sendiri (berganti tiap push).
   // Preview dilindungi Vercel Authentication; Production tetap hanya memakai ALLOWED_ORIGIN.
   if (process.env.VERCEL_ENV === 'preview') {
@@ -71,7 +75,13 @@ function csrfOk(request: Request): boolean {
   if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return true;
   if (request.headers.get('x-requested-with') !== 'dyflorist') return false;
   const origin = request.headers.get('origin');
-  return !!origin && allowedOrigins().includes(origin);
+  const allowed = allowedOrigins();
+  const ok = !!origin && allowed.includes(origin);
+  if (!ok) {
+    // Alamat situs bukan rahasia; log ini membantu menemukan salah ketik di ALLOWED_ORIGIN
+    console.error(`CSRF ditolak: origin="${origin ?? ''}" tidak ada di ALLOWED_ORIGIN (terdaftar: ${allowed.length})`);
+  }
+  return ok;
 }
 
 function sessionCookie(value: string, expires: Date | null): string {

@@ -230,7 +230,7 @@ function getCookie(request, name) {
   return void 0;
 }
 function allowedOrigins() {
-  const list = (process.env.ALLOWED_ORIGIN ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const list = (process.env.ALLOWED_ORIGIN ?? "").split(",").map((s) => s.trim().replace(/\/+$/, "")).filter(Boolean);
   if (process.env.VERCEL_ENV === "preview") {
     for (const host of [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL]) {
       if (host) list.push(`https://${host}`);
@@ -242,7 +242,12 @@ function csrfOk(request) {
   if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return true;
   if (request.headers.get("x-requested-with") !== "dyflorist") return false;
   const origin = request.headers.get("origin");
-  return !!origin && allowedOrigins().includes(origin);
+  const allowed = allowedOrigins();
+  const ok = !!origin && allowed.includes(origin);
+  if (!ok) {
+    console.error(`CSRF ditolak: origin="${origin ?? ""}" tidak ada di ALLOWED_ORIGIN (terdaftar: ${allowed.length})`);
+  }
+  return ok;
 }
 function sessionCookie(value, expires) {
   const attrs = [`${SESSION_COOKIE}=${value}`, "Path=/", "HttpOnly", "SameSite=Strict"];
