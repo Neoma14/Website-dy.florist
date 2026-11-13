@@ -16,7 +16,8 @@
     "setup-db": "tsx scripts/setup-db.ts",
     "db:migrate:tidb": "tsx --env-file=.env.tidb scripts/migrate.ts",
     "db:seed:tidb": "tsx --env-file=.env.tidb scripts/seed.ts",
-    "build:api": "esbuild server/handler.ts --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=api/index.js"
+    "build:api": "esbuild server/handler.ts --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=api/index.js",
+    "db:backup": "tsx --env-file=.env.tidb scripts/backup-db.ts"
   },
   "repository": {
     "type": "git",

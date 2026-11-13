@@ -41,10 +41,12 @@ export async function destroySession(token: string | undefined) {
   await getDb().delete(schema.sessions).where(eq(schema.sessions.tokenHash, sha256(token)));
 }
 
-// --- Pemblokiran login: 5 gagal / 15 menit per IP, 30 gagal / 15 menit global ---
+// --- Pemblokiran login: 5 gagal / 15 menit per IP, 100 gagal / 15 menit global ---
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_PER_IP = 5;
-const LOGIN_MAX_GLOBAL = 30;
+// Batas global dinaikkan dari 30 ke 100 agar orang iseng tidak mudah mengunci admin sungguhan;
+// menebak password tetap sangat lambat (maks 100 percobaan / 15 menit untuk seluruh dunia).
+const LOGIN_MAX_GLOBAL = 100;
 
 export async function loginBlockedSeconds(ipHash: string): Promise<number> {
   const db = getDb();

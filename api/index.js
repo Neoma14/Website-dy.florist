@@ -148,7 +148,7 @@ async function destroySession(token) {
 }
 var LOGIN_WINDOW_MS = 15 * 60 * 1e3;
 var LOGIN_MAX_PER_IP = 5;
-var LOGIN_MAX_GLOBAL = 30;
+var LOGIN_MAX_GLOBAL = 100;
 async function loginBlockedSeconds(ipHash) {
   const db = getDb();
   const since = new Date(Date.now() - LOGIN_WINDOW_MS);
