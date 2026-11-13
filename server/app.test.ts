@@ -124,7 +124,7 @@ test('request admin yang mengubah data tanpa CSRF header ditolak walau sudah log
 
 test('produk: gambar javascript:/URL luar ditolak, data tidak valid 422', async () => {
   const cookie = await login();
-  const base = { name: 'Tes', category: 'florist', price: 1000, badge: '', description: 'x' };
+  const base = { name: 'Tes', category: 'segar', price: 1000, badge: '', description: 'x' };
   for (const image of ['javascript:alert(1)', 'https://evil.example/x.jpg', 'data:text/html,<script>', '../etc/passwd']) {
     const res = await call('/api/admin/products', { method: 'POST', cookie, ...json({ ...base, image }) });
     assert.equal(res.status, 422, image);
@@ -135,7 +135,7 @@ test('produk: gambar javascript:/URL luar ditolak, data tidak valid 422', async 
 
 test('produk: tambah, ubah, hapus oleh admin', async () => {
   const cookie = await login();
-  const body = { name: '<img src=x onerror=alert(1)>', category: 'gift', price: 12345, badge: '', description: 'desc', image: '/assets/logo.png' };
+  const body = { name: '<img src=x onerror=alert(1)>', category: 'gift_craft', price: 12345, badge: '', description: 'desc', image: '/assets/logo.png' };
   const created = await call('/api/admin/products', { method: 'POST', cookie, ...json(body) });
   assert.equal(created.status, 200);
   const { id } = await created.json() as { id: string };

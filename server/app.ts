@@ -11,10 +11,13 @@ import {
 } from './lib/security';
 
 const CATEGORIES: Record<string, string> = {
-  florist: 'Florist',
-  gift: 'Gift & Hampers',
-  craft: 'Craft & Preserved',
+  artificial: 'Bucket Bunga Artificial',
+  segar: 'Bucket Bunga Segar',
+  satin: 'Bucket Bunga Satin',
+  gift_craft: 'Gift, Craft & Hampers',
   dekorasi: 'Dekorasi',
+  undangan: 'Undangan Digital',
+  lainnya: 'Layanan Lainnya',
 };
 
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // batas body Vercel Functions ~4.5 MB

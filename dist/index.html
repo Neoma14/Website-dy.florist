@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <script type="module" crossorigin src="/assets/index-BUNpcCAG.js"></script>
+  <script type="module" crossorigin src="/assets/index-CKstXSOS.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/index-7ZotPRG-.css">
 </head>
 <body>
@@ -137,7 +137,7 @@
 
         <div class="pillars-grid">
           <!-- Pillar 1: Florist -->
-          <div class="pillar-card" data-category="florist">
+          <div class="pillar-card" data-category="segar">
             <div class="pillar-img-wrap">
               <img src="/assets/bouquet.jpg" alt="dy.florist Rangkaian Bunga" loading="lazy">
               <span class="pillar-tag">Pilar 01</span>
@@ -148,12 +148,12 @@
                 <span class="pillar-badge">Fresh Blooms</span>
               </div>
               <p>Buket bunga segar bergaya Korean aesthetic, Bloom Box velvet mewah, standing flower perayaan, serta dekorasi pernikahan istimewa.</p>
-              <button class="pillar-action" data-click="filterCatalog('florist')">Jelajahi Florist →</button>
+              <button class="pillar-action" data-click="filterCatalog('segar')">Jelajahi Florist →</button>
             </div>
           </div>
 
           <!-- Pillar 2: Gift -->
-          <div class="pillar-card" data-category="gift">
+          <div class="pillar-card" data-category="gift_craft">
             <div class="pillar-img-wrap">
               <img src="/assets/gift.jpg" alt="dy.florist Gift & Hampers" loading="lazy">
               <span class="pillar-tag">Pilar 02</span>
@@ -164,12 +164,12 @@
                 <span class="pillar-badge">Curated Sets</span>
               </div>
               <p>Hampers eksklusif dengan scented candle aromaterapi, boneka wisuda, cokelat artisan, dan personalised acrylic greeting gift box.</p>
-              <button class="pillar-action" data-click="filterCatalog('gift')">Jelajahi Gift →</button>
+              <button class="pillar-action" data-click="filterCatalog('gift_craft')">Jelajahi Gift →</button>
             </div>
           </div>
 
           <!-- Pillar 3: Craft -->
-          <div class="pillar-card" data-category="craft">
+          <div class="pillar-card" data-category="gift_craft">
             <div class="pillar-img-wrap">
               <img src="/assets/dome.jpg" alt="dy.florist Craft & Preserved" loading="lazy">
               <span class="pillar-tag">Pilar 03</span>
@@ -180,7 +180,7 @@
                 <span class="pillar-badge">Eternal Art</span>
               </div>
               <p>Preserved flowers abadi dalam kubah kaca berlampu LED, dried flower frames artistik, serta floral DIY craft workshop mingguan.</p>
-              <button class="pillar-action" data-click="filterCatalog('craft')">Jelajahi Craft →</button>
+              <button class="pillar-action" data-click="filterCatalog('gift_craft')">Jelajahi Craft →</button>
             </div>
           </div>
 
@@ -218,10 +218,13 @@
         <div class="catalog-controls">
           <div class="filter-tabs" id="filterTabs">
             <button class="tab-btn active" data-filter="all">Semua Produk</button>
-            <button class="tab-btn" data-filter="florist">🌸 Florist</button>
-            <button class="tab-btn" data-filter="gift">🎁 Gift & Hampers</button>
-            <button class="tab-btn" data-filter="craft">✨ Craft & Eternal</button>
+            <button class="tab-btn" data-filter="artificial">🌷 Bucket Bunga Artificial</button>
+            <button class="tab-btn" data-filter="segar">🌸 Bucket Bunga Segar</button>
+            <button class="tab-btn" data-filter="satin">🎀 Bucket Bunga Satin</button>
+            <button class="tab-btn" data-filter="gift_craft">🎁 Gift, Craft & Hampers</button>
             <button class="tab-btn" data-filter="dekorasi">🎊 Dekorasi</button>
+            <button class="tab-btn" data-filter="undangan">💌 Undangan Digital</button>
+            <button class="tab-btn" data-filter="lainnya">✨ Layanan Lainnya</button>
           </div>
 
           <div class="search-box">
@@ -571,10 +574,12 @@
       <div class="footer-col">
         <h4>Kategori Layanan</h4>
         <ul>
-          <li><a href="#catalog" data-click="filterCatalog('florist')">Fresh Flower Bouquets</a></li>
-          <li><a href="#catalog" data-click="filterCatalog('florist')">Velvet Bloom Boxes</a></li>
-          <li><a href="#catalog" data-click="filterCatalog('gift')">Curated Gift Hampers</a></li>
-          <li><a href="#catalog" data-click="filterCatalog('craft')">Preserved Rose Domes</a></li>
+          <li><a href="#catalog" data-click="filterCatalog('segar')">Bucket Bunga Segar</a></li>
+          <li><a href="#catalog" data-click="filterCatalog('artificial')">Bucket Bunga Artificial</a></li>
+          <li><a href="#catalog" data-click="filterCatalog('satin')">Bucket Bunga Satin</a></li>
+          <li><a href="#catalog" data-click="filterCatalog('gift_craft')">Gift, Craft & Hampers</a></li>
+          <li><a href="#catalog" data-click="filterCatalog('dekorasi')">Dekorasi</a></li>
+          <li><a href="#catalog" data-click="filterCatalog('undangan')">Undangan Digital</a></li>
         </ul>
       </div>
 
@@ -713,10 +718,13 @@
             <input type="text" id="adminSearchInput" placeholder="Cari nama produk..." data-input="filterAdminProducts()">
             <select id="adminCategoryFilter" data-change="filterAdminProducts()">
               <option value="all">Semua Kategori</option>
-              <option value="florist">Florist</option>
-              <option value="gift">Gift Hampers</option>
-              <option value="craft">Craft & Preserved</option>
+              <option value="artificial">Bucket Bunga Artificial</option>
+              <option value="segar">Bucket Bunga Segar</option>
+              <option value="satin">Bucket Bunga Satin</option>
+              <option value="gift_craft">Gift, Craft & Hampers</option>
               <option value="dekorasi">Dekorasi</option>
+              <option value="undangan">Undangan Digital</option>
+              <option value="lainnya">Layanan Lainnya</option>
             </select>
           </div>
           <div class="admin-table-wrapper">
@@ -750,10 +758,13 @@
             <div class="form-group">
               <label for="prodCategory">Kategori *</label>
               <select id="prodCategory" required>
-                <option value="florist">Florist (Bunga Segar)</option>
-                <option value="gift">Gift & Hampers</option>
-                <option value="craft">Craft & Preserved Flowers</option>
-                <option value="dekorasi">Dekorasi (Lamaran, Wedding Car, dll)</option>
+                <option value="artificial">Bucket Bunga Artificial</option>
+                <option value="segar">Bucket Bunga Segar</option>
+                <option value="satin">Bucket Bunga Satin</option>
+                <option value="gift_craft">Gift, Craft & Hampers</option>
+                <option value="dekorasi">Dekorasi</option>
+                <option value="undangan">Undangan Digital</option>
+                <option value="lainnya">Layanan Lainnya</option>
               </select>
             </div>
 

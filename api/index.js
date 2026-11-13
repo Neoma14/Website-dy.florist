@@ -193,10 +193,13 @@ function detectImageType(buf) {
 
 // server/app.ts
 var CATEGORIES = {
-  florist: "Florist",
-  gift: "Gift & Hampers",
-  craft: "Craft & Preserved",
-  dekorasi: "Dekorasi"
+  artificial: "Bucket Bunga Artificial",
+  segar: "Bucket Bunga Segar",
+  satin: "Bucket Bunga Satin",
+  gift_craft: "Gift, Craft & Hampers",
+  dekorasi: "Dekorasi",
+  undangan: "Undangan Digital",
+  lainnya: "Layanan Lainnya"
 };
 var MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 var UPLOAD_DIR = join(process.cwd(), ".uploads");

@@ -199,18 +199,45 @@ function formatIDR(amount) {
 // ==========================================
 // 4. CATALOG RENDERING & FILTERING
 // ==========================================
+// Pesan untuk kategori yang masih kosong (teks tetap, bukan data pengguna)
+const CATEGORY_EMPTY_INFO = {
+  dekorasi: {
+    icon: '🎊',
+    text: 'Dekorasi lamaran, wedding car, ulang tahun, dan acara lainnya. Konsultasikan konsep Anda bersama kami.',
+    wa: 'Halo dy.florist, saya ingin konsultasi dekorasi acara',
+    btn: 'Konsultasi Dekorasi via WhatsApp'
+  },
+  undangan: {
+    icon: '💌',
+    text: 'Undangan digital untuk pernikahan, ulang tahun, dan acara spesial lainnya. Konsultasikan desainnya bersama kami.',
+    wa: 'Halo dy.florist, saya ingin konsultasi undangan digital',
+    btn: 'Konsultasi Undangan Digital via WhatsApp'
+  },
+  lainnya: {
+    icon: '✨',
+    text: 'Butuh layanan lain? Ceritakan kebutuhan Anda, kami bantu wujudkan.',
+    wa: 'Halo dy.florist, saya ingin menanyakan layanan lainnya',
+    btn: 'Tanya Layanan via WhatsApp'
+  }
+};
+
 function renderCatalog() {
   const grid = document.getElementById('productsGrid');
   const emptyState = document.getElementById('catalogEmpty');
   if (!grid) return;
 
-  // Belum ada produk dekorasi: arahkan pengunjung konsultasi lewat WhatsApp
-  if (activeFilter === 'dekorasi' && !PRODUCTS.some(p => p.category === 'dekorasi')) {
+  // Kategori yang belum punya produk: ajak pengunjung berkonsultasi lewat WhatsApp
+  if (activeFilter !== 'all' && !PRODUCTS.some(p => p.category === activeFilter)) {
+    const info = CATEGORY_EMPTY_INFO[activeFilter] || {
+      icon: '🌸',
+      text: 'Produk kategori ini segera hadir. Hubungi kami untuk pemesanan custom.',
+      wa: 'Halo dy.florist, saya ingin menanyakan produk yang tersedia',
+      btn: 'Tanya via WhatsApp'
+    };
     if (emptyState) emptyState.style.display = 'none';
-    const waText = encodeURIComponent('Halo dy.florist, saya ingin konsultasi dekorasi acara');
     grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 48px 16px;">
-      <p style="color: var(--color-text-muted); margin-bottom: 16px;">🎊 Dekorasi lamaran, wedding car, ulang tahun, dan acara lainnya. Konsultasikan konsep Anda bersama kami.</p>
-      <a class="btn btn-primary" href="https://wa.me/${WA_PHONE_NUMBER}?text=${waText}" target="_blank" rel="noopener noreferrer">Konsultasi Dekorasi via WhatsApp</a>
+      <p style="color: var(--color-text-muted); margin-bottom: 16px;">${info.icon} ${info.text}</p>
+      <a class="btn btn-primary" href="https://wa.me/${WA_PHONE_NUMBER}?text=${encodeURIComponent(info.wa)}" target="_blank" rel="noopener noreferrer">${info.btn}</a>
     </div>`;
     return;
   }
