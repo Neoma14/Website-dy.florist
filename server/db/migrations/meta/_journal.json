@@ -22,6 +22,13 @@
       "when": 1794565440866,
       "tag": "0002_useful_medusa",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1794666176279,
+      "tag": "0003_real_products",
+      "breakpoints": true
     }
   ]
 }

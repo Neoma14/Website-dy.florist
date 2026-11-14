@@ -271,17 +271,17 @@ test('pesanan: produk tidak dikenal, qty tidak wajar, teks terlalu panjang ditol
     method: 'POST', admin: false, ...json({ recipient: 'A', scheduled: 'B', note: '', items, ...extra }),
   });
   assert.equal((await mk([{ id: 'tidak-ada', qty: 1 }])).status, 400);
-  assert.equal((await mk([{ id: 'f1', qty: 0 }])).status, 422);
-  assert.equal((await mk([{ id: 'f1', qty: 9999 }])).status, 422);
+  assert.equal((await mk([{ id: 'satin_blush_ruffle', qty: 0 }])).status, 422);
+  assert.equal((await mk([{ id: 'satin_blush_ruffle', qty: 9999 }])).status, 422);
   assert.equal((await mk([])).status, 422);
-  assert.equal((await mk([{ id: 'f1', qty: 1 }], { note: 'x'.repeat(501) })).status, 422);
+  assert.equal((await mk([{ id: 'satin_blush_ruffle', qty: 1 }], { note: 'x'.repeat(501) })).status, 422);
 });
 
 test('pesanan: rate limit per IP (maks 5 / 10 menit)', async () => {
   const ip = newIp();
   const send = () => call('/api/orders', {
     method: 'POST', admin: false, ip,
-    ...json({ recipient: 'A', scheduled: 'B', note: '', items: [{ id: 'f1', qty: 1 }] }),
+    ...json({ recipient: 'A', scheduled: 'B', note: '', items: [{ id: 'satin_blush_ruffle', qty: 1 }] }),
   });
   for (let i = 0; i < 5; i++) assert.equal((await send()).status, 200);
   assert.equal((await send()).status, 429);
@@ -299,7 +299,7 @@ test('pesanan: payload XSS disimpan apa adanya tapi hanya admin yang bisa membac
   const xss = '<script>alert(1)</script>';
   const o = await call('/api/orders', {
     method: 'POST', admin: false,
-    ...json({ recipient: xss, scheduled: 'x', note: xss, items: [{ id: 'f1', qty: 1 }] }),
+    ...json({ recipient: xss, scheduled: 'x', note: xss, items: [{ id: 'satin_blush_ruffle', qty: 1 }] }),
   });
   assert.equal(o.status, 200);
   assert.equal((await call('/api/admin/orders')).status, 401);
