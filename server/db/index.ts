@@ -11,6 +11,7 @@ export function getDb() {
     pool = mysql.createPool({
       uri: url,
       connectionLimit: 3,
+      charset: 'utf8mb4', // agar emoji (mis. pada kategori) tersimpan dengan benar
       ssl: process.env.DATABASE_SSL === 'false' ? undefined : { minVersion: 'TLSv1.2', rejectUnauthorized: true },
     });
   }

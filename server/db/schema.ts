@@ -1,9 +1,17 @@
 import { mysqlTable, varchar, int, text, timestamp, datetime, index } from 'drizzle-orm/mysql-core';
 
+export const categories = mysqlTable('categories', {
+  key: varchar('key', { length: 30 }).primaryKey(),
+  name: varchar('name', { length: 40 }).notNull(),
+  emoji: varchar('emoji', { length: 16 }).notNull().default(''),
+  sort: int('sort').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
 export const products = mysqlTable('products', {
   id: varchar('id', { length: 40 }).primaryKey(),
   name: varchar('name', { length: 120 }).notNull(),
-  category: varchar('category', { length: 20 }).notNull(),
+  category: varchar('category', { length: 30 }).notNull(),
   categoryName: varchar('category_name', { length: 40 }).notNull(),
   price: int('price').notNull(),
   badge: varchar('badge', { length: 40 }).notNull().default(''),

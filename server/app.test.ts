@@ -159,6 +159,67 @@ test('produk: tambah, ubah, hapus oleh admin', async () => {
   assert.equal((await call(`/api/admin/products/${id}`, { method: 'DELETE', cookie })).status, 404);
 });
 
+test('kategori: daftar publik tersedia, endpoint kelola butuh login', async () => {
+  const res = await call('/api/categories');
+  assert.equal(res.status, 200);
+  const list = await res.json() as any[];
+  assert.ok(list.length >= 7);
+  assert.deepEqual(Object.keys(list[0]).sort(), ['emoji', 'key', 'name']);
+  for (const [method, path] of [['POST', '/api/admin/categories'], ['PUT', '/api/admin/categories/segar'], ['DELETE', '/api/admin/categories/segar']]) {
+    assert.equal((await call(path, { method })).status, 401, `${method} ${path}`);
+  }
+});
+
+test('kategori: tambah, ubah nama (ikut ke produk), tolak duplikat, hapus hanya jika kosong', async () => {
+  const cookie = await login();
+  const nama = 'Hampers Wisuda ' + Date.now();
+  const created = await call('/api/admin/categories', { method: 'POST', cookie, ...json({ name: nama, emoji: '🎓' }) });
+  assert.equal(created.status, 200);
+  const { key } = await created.json() as { key: string };
+  assert.match(key, /^[a-z0-9_]+$/);
+
+  // nama sama (beda huruf besar/kecil) ditolak
+  const dupe = await call('/api/admin/categories', { method: 'POST', cookie, ...json({ name: nama.toUpperCase(), emoji: '' }) });
+  assert.equal(dupe.status, 409);
+
+  // produk di kategori baru
+  const body = { name: 'Produk Kategori Uji', category: key, price: 5000, badge: '', description: 'x', image: '/assets/logo.png' };
+  const prod = await call('/api/admin/products', { method: 'POST', cookie, ...json(body) });
+  assert.equal(prod.status, 200);
+  const { id } = await prod.json() as { id: string };
+
+  // kategori yang tidak ada ditolak
+  const bad = await call('/api/admin/products', { method: 'POST', cookie, ...json({ ...body, category: 'tidak_ada' }) });
+  assert.equal(bad.status, 422);
+
+  // tidak boleh dihapus selama masih ada produk
+  assert.equal((await call(`/api/admin/categories/${key}`, { method: 'DELETE', cookie })).status, 409);
+
+  // ganti nama -> nama pada produk ikut berubah
+  const baru = nama + ' Baru';
+  assert.equal((await call(`/api/admin/categories/${key}`, { method: 'PUT', cookie, ...json({ name: baru, emoji: '🎓' }) })).status, 200);
+  const list = await (await call('/api/products')).json() as any[];
+  assert.equal(list.find((p) => p.id === id).categoryName, baru);
+
+  // kosongkan lalu hapus
+  assert.equal((await call(`/api/admin/products/${id}`, { method: 'DELETE', cookie })).status, 200);
+  assert.equal((await call(`/api/admin/categories/${key}`, { method: 'DELETE', cookie })).status, 200);
+  assert.equal((await call(`/api/admin/categories/${key}`, { method: 'DELETE', cookie })).status, 404);
+});
+
+test('kategori: karakter < > dibuang dari nama dan emoji', async () => {
+  const cookie = await login();
+  const res = await call('/api/admin/categories', {
+    method: 'POST', cookie, ...json({ name: '<b>x</b>Uji' + Date.now(), emoji: '<b>' }),
+  });
+  assert.equal(res.status, 200);
+  const { key } = await res.json() as { key: string };
+  const list = await (await call('/api/categories')).json() as any[];
+  const cat = list.find((c) => c.key === key);
+  assert.ok(!/[<>]/.test(cat.name) && !/[<>]/.test(cat.emoji));
+  await call(`/api/admin/categories/${key}`, { method: 'DELETE', cookie });
+});
+
 test('upload: file palsu (teks berekstensi .jpg) ditolak, PNG asli diterima', async () => {
   const cookie = await login();
   const fake = new FormData();

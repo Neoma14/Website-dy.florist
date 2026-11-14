@@ -216,14 +216,7 @@
         <!-- Filter & Search Controls -->
         <div class="catalog-controls">
           <div class="filter-tabs" id="filterTabs">
-            <button class="tab-btn active" data-filter="all">Semua Produk</button>
-            <button class="tab-btn" data-filter="artificial">🌷 Bucket Bunga Artificial</button>
-            <button class="tab-btn" data-filter="segar">🌸 Bucket Bunga Segar</button>
-            <button class="tab-btn" data-filter="satin">🎀 Bucket Bunga Satin</button>
-            <button class="tab-btn" data-filter="gift_craft">🎁 Gift, Craft & Hampers</button>
-            <button class="tab-btn" data-filter="dekorasi">🎊 Dekorasi</button>
-            <button class="tab-btn" data-filter="undangan">💌 Undangan Digital</button>
-            <button class="tab-btn" data-filter="lainnya">✨ Layanan Lainnya</button>
+            <button class="tab-btn active" data-filter="all" data-click="selectCategory('all')">Semua Produk</button>
           </div>
 
           <div class="search-box">
@@ -707,6 +700,7 @@
         <div class="admin-nav-tabs">
           <button class="admin-tab active" data-tab="products" data-click="switchAdminTab('products')">📦 Kelola Produk (<span id="adminTotalCount">0</span>)</button>
           <button class="admin-tab" data-tab="add" data-click="switchAdminTab('add')">➕ Tambah Produk Baru</button>
+          <button class="admin-tab" data-tab="categories" data-click="switchAdminTab('categories')">🏷️ Kategori (<span id="adminCategoriesCount">0</span>)</button>
           <button class="admin-tab" data-tab="orders" data-click="switchAdminTab('orders')">📋 Riwayat Order (<span id="adminOrdersCount">0</span>)</button>
           <div class="admin-nav-spacer"></div>
           <button class="btn-logout" data-click="handleAdminLogout()">Keluar 🚪</button>
@@ -717,13 +711,6 @@
             <input type="text" id="adminSearchInput" placeholder="Cari nama produk..." data-input="filterAdminProducts()">
             <select id="adminCategoryFilter" data-change="filterAdminProducts()">
               <option value="all">Semua Kategori</option>
-              <option value="artificial">Bucket Bunga Artificial</option>
-              <option value="segar">Bucket Bunga Segar</option>
-              <option value="satin">Bucket Bunga Satin</option>
-              <option value="gift_craft">Gift, Craft & Hampers</option>
-              <option value="dekorasi">Dekorasi</option>
-              <option value="undangan">Undangan Digital</option>
-              <option value="lainnya">Layanan Lainnya</option>
             </select>
           </div>
           <div class="admin-table-wrapper">
@@ -756,15 +743,7 @@
 
             <div class="form-group">
               <label for="prodCategory">Kategori *</label>
-              <select id="prodCategory" required>
-                <option value="artificial">Bucket Bunga Artificial</option>
-                <option value="segar">Bucket Bunga Segar</option>
-                <option value="satin">Bucket Bunga Satin</option>
-                <option value="gift_craft">Gift, Craft & Hampers</option>
-                <option value="dekorasi">Dekorasi</option>
-                <option value="undangan">Undangan Digital</option>
-                <option value="lainnya">Layanan Lainnya</option>
-              </select>
+              <select id="prodCategory" required></select>
             </div>
 
             <div class="form-group">
@@ -796,6 +775,41 @@
               <button type="button" class="btn btn-secondary" data-click="cancelEditProduct()">Batal</button>
             </div>
           </form>
+        </div>
+
+        <div class="admin-tab-content" id="adminTabCategories" style="display: none;">
+          <form id="adminCategoryForm" data-submit="saveAdminCategory()" class="admin-form-grid">
+            <input type="hidden" id="editCategoryKey" value="">
+            <div class="form-group">
+              <label for="catName">Nama Kategori *</label>
+              <input type="text" id="catName" required maxlength="40" placeholder="Contoh: Hampers Wisuda">
+            </div>
+            <div class="form-group">
+              <label for="catEmoji">Emoji (Opsional)</label>
+              <input type="text" id="catEmoji" maxlength="8" placeholder="🎓">
+            </div>
+            <div class="form-actions full-width">
+              <button type="submit" class="btn btn-primary" id="btnSaveCategory">
+                <span id="saveCatText">Tambah Kategori</span>
+              </button>
+              <button type="button" class="btn btn-secondary" data-click="cancelEditCategory()">Batal</button>
+            </div>
+          </form>
+          <div class="admin-table-wrapper" style="margin-top: 20px;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Kategori</th>
+                  <th>Jumlah Produk</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="adminCategoriesTableBody"></tbody>
+            </table>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 8px;">
+            Kategori baru otomatis tampil sebagai tab di katalog. Kategori hanya bisa dihapus jika belum ada produknya.
+          </p>
         </div>
 
         <div class="admin-tab-content" id="adminTabOrders" style="display: none;">

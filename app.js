@@ -43,6 +43,53 @@ async function api(path, { method = 'GET', json, form } = {}) {
 // ==========================================
 let PRODUCTS = [];
 let productsError = false;
+let CATEGORIES = []; // { key, name, emoji } dari server
+
+async function loadCategories() {
+  try {
+    CATEGORIES = await api('/categories');
+  } catch (e) {
+    CATEGORIES = [];
+  }
+}
+
+const categoryLabel = (c) => (c.emoji ? c.emoji + ' ' : '') + c.name;
+
+// Tab katalog dibangun dari daftar kategori di server
+function renderCategoryTabs() {
+  const wrap = document.getElementById('filterTabs');
+  if (!wrap) return;
+  const tabs = [{ key: 'all', label: 'Semua Produk' }, ...CATEGORIES.map(c => ({ key: c.key, label: categoryLabel(c) }))];
+  if (!tabs.some(t => t.key === activeFilter)) activeFilter = 'all';
+  wrap.innerHTML = tabs.map(t => `
+    <button class="tab-btn${t.key === activeFilter ? ' active' : ''}" data-filter="${esc(t.key)}" data-click="selectCategory('${esc(t.key)}')">${esc(t.label)}</button>
+  `).join('');
+}
+
+// Isi pilihan kategori di form produk dan filter admin
+function populateCategorySelects() {
+  const form = document.getElementById('prodCategory');
+  if (form) {
+    const current = form.value;
+    form.innerHTML = CATEGORIES.map(c => `<option value="${esc(c.key)}">${esc(categoryLabel(c))}</option>`).join('');
+    if (CATEGORIES.some(c => c.key === current)) form.value = current;
+  }
+  const filter = document.getElementById('adminCategoryFilter');
+  if (filter) {
+    const current = filter.value;
+    filter.innerHTML = '<option value="all">Semua Kategori</option>' +
+      CATEGORIES.map(c => `<option value="${esc(c.key)}">${esc(c.name)}</option>`).join('');
+    filter.value = CATEGORIES.some(c => c.key === current) ? current : 'all';
+  }
+}
+
+window.selectCategory = function(key) {
+  activeFilter = key;
+  document.querySelectorAll('.tab-btn').forEach(t => {
+    t.classList.toggle('active', t.getAttribute('data-filter') === key);
+  });
+  renderCatalog();
+};
 
 async function loadProducts() {
   try {
@@ -91,7 +138,8 @@ const ALLOWED_ACTIONS = new Set([
   'filterCatalog', 'resetFilters', 'switchAdminTab', 'startEditProduct', 'deleteProduct', 'removeFromCart',
   'changeCartQty', 'openQuickView', 'openAdminModal', 'handleAdminLogout', 'clearOrdersLog', 'cancelEditProduct',
   'addToCart', 'closeQuickView', 'closeCart', 'goCatalog', 'handleProductImageUpload', 'filterAdminProducts',
-  'saveAdminProduct', 'handleAdminLogin'
+  'saveAdminProduct', 'handleAdminLogin', 'selectCategory', 'saveAdminCategory', 'startEditCategory',
+  'cancelEditCategory', 'deleteCategory'
 ]);
 
 function runActions(spec, el) {
@@ -163,7 +211,9 @@ const customizerState = {
 document.addEventListener('DOMContentLoaded', () => {
   const gridEl = document.getElementById('productsGrid');
   if (gridEl) gridEl.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; padding: 32px; color: var(--color-text-muted);">Memuat produk...</p>';
-  loadProducts().then(() => {
+  Promise.all([loadCategories(), loadProducts()]).then(() => {
+    renderCategoryTabs();
+    populateCategorySelects();
     if (productsError && gridEl) {
       gridEl.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; padding: 32px; color: var(--color-text-muted);">Produk gagal dimuat. Silakan muat ulang halaman.</p>';
     } else {
@@ -172,10 +222,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Jika admin sudah terbuka (alamat /admin) sebelum produk selesai dimuat, segarkan tabelnya
     if (isAdminLoggedIn) {
       renderAdminProductsTable();
+      renderAdminCategories();
       updateAdminBadges();
     }
   });
-  setupFilterTabs();
   setupSearch();
   setupCustomizer();
   setupCartDrawer();
@@ -228,9 +278,10 @@ function renderCatalog() {
 
   // Kategori yang belum punya produk: ajak pengunjung berkonsultasi lewat WhatsApp
   if (activeFilter !== 'all' && !PRODUCTS.some(p => p.category === activeFilter)) {
+    const catName = (CATEGORIES.find(c => c.key === activeFilter) || {}).name || 'ini';
     const info = CATEGORY_EMPTY_INFO[activeFilter] || {
       icon: '🌸',
-      text: 'Produk kategori ini segera hadir. Hubungi kami untuk pemesanan custom.',
+      text: 'Produk kategori ' + esc(catName) + ' segera hadir. Hubungi kami untuk pemesanan custom.',
       wa: 'Halo dy.florist, saya ingin menanyakan produk yang tersedia',
       btn: 'Tanya via WhatsApp'
     };
@@ -285,18 +336,6 @@ function renderCatalog() {
       </div>
     </article>
   `).join('');
-}
-
-function setupFilterTabs() {
-  const tabs = document.querySelectorAll('.tab-btn');
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      tabs.forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      activeFilter = tab.getAttribute('data-filter');
-      renderCatalog();
-    });
-  });
 }
 
 function setupSearch() {
@@ -915,7 +954,9 @@ async function showAdminDashboard() {
   if (dashView) dashView.style.display = 'block';
   if (headerTitle) headerTitle.textContent = 'Admin Control Center';
 
+  populateCategorySelects();
   renderAdminProductsTable();
+  renderAdminCategories();
   try {
     ADMIN_ORDERS = await adminApi('/admin/orders');
   } catch (e) {
@@ -968,7 +1009,9 @@ window.switchAdminTab = function(tabName) {
   const contentProducts = document.getElementById('adminTabProducts');
   const contentAdd = document.getElementById('adminTabAdd');
   const contentOrders = document.getElementById('adminTabOrders');
+  const contentCategories = document.getElementById('adminTabCategories');
 
+  if (contentCategories) contentCategories.style.display = (tabName === 'categories') ? 'block' : 'none';
   if (contentProducts) contentProducts.style.display = (tabName === 'products') ? 'block' : 'none';
   if (contentAdd) contentAdd.style.display = (tabName === 'add') ? 'block' : 'none';
   if (contentOrders) contentOrders.style.display = (tabName === 'orders') ? 'block' : 'none';
@@ -977,10 +1020,14 @@ window.switchAdminTab = function(tabName) {
     renderAdminProductsTable();
   } else if (tabName === 'orders') {
     renderAdminOrdersTable();
+  } else if (tabName === 'categories') {
+    renderAdminCategories();
   }
 };
 
 function updateAdminBadges() {
+  const catCountEl = document.getElementById('adminCategoriesCount');
+  if (catCountEl) catCountEl.textContent = CATEGORIES.length;
   const totalCountEl = document.getElementById('adminTotalCount');
   const ordersCountEl = document.getElementById('adminOrdersCount');
 
@@ -1177,6 +1224,96 @@ window.deleteProduct = async function(id) {
     } catch (e) {
       showToast(e.message || 'Gagal menghapus produk.');
     }
+  }
+};
+
+window.renderAdminCategories = function() {
+  const tbody = document.getElementById('adminCategoriesTableBody');
+  if (!tbody) return;
+  if (CATEGORIES.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 24px; color: var(--color-text-muted);">Belum ada kategori.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = CATEGORIES.map(c => {
+    const count = PRODUCTS.filter(p => p.category === c.key).length;
+    return `
+    <tr>
+      <td><strong>${esc(categoryLabel(c))}</strong></td>
+      <td>${count}</td>
+      <td>
+        <button class="btn-action-edit" data-click="startEditCategory('${esc(c.key)}')">Ubah</button>
+        <button class="btn-action-delete" data-click="deleteCategory('${esc(c.key)}')">Hapus</button>
+      </td>
+    </tr>`;
+  }).join('');
+};
+
+// Muat ulang kategori & produk lalu segarkan semua tampilan yang memakainya
+async function refreshAfterCategoryChange() {
+  await Promise.all([loadCategories(), loadProducts()]);
+  renderCategoryTabs();
+  populateCategorySelects();
+  renderCatalog();
+  renderAdminCategories();
+  renderAdminProductsTable();
+  updateAdminBadges();
+}
+
+window.startEditCategory = function(key) {
+  const c = CATEGORIES.find(x => x.key === key);
+  if (!c) return;
+  document.getElementById('editCategoryKey').value = c.key;
+  document.getElementById('catName').value = c.name;
+  document.getElementById('catEmoji').value = c.emoji || '';
+  document.getElementById('saveCatText').textContent = 'Simpan Perubahan';
+  document.getElementById('catName').focus();
+};
+
+window.cancelEditCategory = function() {
+  document.getElementById('adminCategoryForm')?.reset();
+  document.getElementById('editCategoryKey').value = '';
+  document.getElementById('saveCatText').textContent = 'Tambah Kategori';
+};
+
+window.saveAdminCategory = async function() {
+  const key = document.getElementById('editCategoryKey').value;
+  const payload = {
+    name: document.getElementById('catName').value.trim(),
+    emoji: document.getElementById('catEmoji').value.trim()
+  };
+  if (!payload.name) {
+    showToast('Nama kategori wajib diisi.');
+    return;
+  }
+  const btn = document.getElementById('btnSaveCategory');
+  if (btn) btn.disabled = true;
+  try {
+    if (key) {
+      await adminApi('/admin/categories/' + encodeURIComponent(key), { method: 'PUT', json: payload });
+      showToast(`Kategori "${payload.name}" diperbarui.`);
+    } else {
+      await adminApi('/admin/categories', { method: 'POST', json: payload });
+      showToast(`Kategori "${payload.name}" ditambahkan.`);
+    }
+    cancelEditCategory();
+    await refreshAfterCategoryChange();
+  } catch (e) {
+    showToast(e.message || 'Gagal menyimpan kategori.');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+};
+
+window.deleteCategory = async function(key) {
+  const c = CATEGORIES.find(x => x.key === key);
+  if (!c) return;
+  if (!confirm(`Hapus kategori "${c.name}"?`)) return;
+  try {
+    await adminApi('/admin/categories/' + encodeURIComponent(key), { method: 'DELETE' });
+    showToast(`Kategori "${c.name}" dihapus.`);
+    await refreshAfterCategoryChange();
+  } catch (e) {
+    showToast(e.message || 'Gagal menghapus kategori.');
   }
 };
 

@@ -9,7 +9,7 @@ import { Elysia, t } from "elysia";
 import { randomBytes as randomBytes3, randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { desc, eq as eq2, inArray } from "drizzle-orm";
+import { and as and2, asc, desc, eq as eq2, inArray, ne, sql as sql2 } from "drizzle-orm";
 
 // server/db/index.ts
 import { drizzle } from "drizzle-orm/mysql2";
@@ -18,6 +18,7 @@ import mysql from "mysql2/promise";
 // server/db/schema.ts
 var schema_exports = {};
 __export(schema_exports, {
+  categories: () => categories,
   loginAttempts: () => loginAttempts,
   orderItems: () => orderItems,
   orders: () => orders,
@@ -26,10 +27,17 @@ __export(schema_exports, {
   sessions: () => sessions
 });
 import { mysqlTable, varchar, int, text, timestamp, datetime, index } from "drizzle-orm/mysql-core";
+var categories = mysqlTable("categories", {
+  key: varchar("key", { length: 30 }).primaryKey(),
+  name: varchar("name", { length: 40 }).notNull(),
+  emoji: varchar("emoji", { length: 16 }).notNull().default(""),
+  sort: int("sort").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
 var products = mysqlTable("products", {
   id: varchar("id", { length: 40 }).primaryKey(),
   name: varchar("name", { length: 120 }).notNull(),
-  category: varchar("category", { length: 20 }).notNull(),
+  category: varchar("category", { length: 30 }).notNull(),
   categoryName: varchar("category_name", { length: 40 }).notNull(),
   price: int("price").notNull(),
   badge: varchar("badge", { length: 40 }).notNull().default(""),
@@ -80,6 +88,8 @@ function getDb() {
     pool = mysql.createPool({
       uri: url,
       connectionLimit: 3,
+      charset: "utf8mb4",
+      // agar emoji (mis. pada kategori) tersimpan dengan benar
       ssl: process.env.DATABASE_SSL === "false" ? void 0 : { minVersion: "TLSv1.2", rejectUnauthorized: true }
     });
   }
@@ -192,15 +202,6 @@ function detectImageType(buf) {
 }
 
 // server/app.ts
-var CATEGORIES = {
-  artificial: "Bucket Bunga Artificial",
-  segar: "Bucket Bunga Segar",
-  satin: "Bucket Bunga Satin",
-  gift_craft: "Gift, Craft & Hampers",
-  dekorasi: "Dekorasi",
-  undangan: "Undangan Digital",
-  lainnya: "Layanan Lainnya"
-};
 var MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 var UPLOAD_DIR = join(process.cwd(), ".uploads");
 var blobConfigured = () => !!(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
@@ -210,11 +211,20 @@ var IMAGE_PATTERNS = [
   /^\/api\/uploads\/[a-f0-9]{32}\.(jpg|png|webp)$/,
   /^https:\/\/[a-z0-9]+\.public\.blob\.vercel-storage\.com\/products\/[\w.-]+$/
 ];
+async function getCategoryName(key) {
+  const [row] = await getDb().select({ name: schema_exports.categories.name }).from(schema_exports.categories).where(eq2(schema_exports.categories.key, key)).limit(1);
+  return row?.name ?? null;
+}
+function slugify(name) {
+  const slug = name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 24);
+  return slug || "kategori";
+}
+var cleanText = (v) => v.replace(/[\u0000-\u001f\u007f<>]/g, "").trim();
 var isAllowedImage = (s) => IMAGE_PATTERNS.some((re) => re.test(s));
 var text2 = (min, max) => t.String({ minLength: min, maxLength: max });
 var productBody = t.Object({
   name: text2(1, 120),
-  category: t.Union(Object.keys(CATEGORIES).map((k) => t.Literal(k))),
+  category: t.String({ minLength: 1, maxLength: 30, pattern: "^[a-z0-9_]+$" }),
   price: t.Integer({ minimum: 0, maximum: 1e8 }),
   badge: text2(0, 40),
   description: text2(1, 1e3),
@@ -331,6 +341,9 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
 }).get("/health", () => ({ ok: true })).get("/products", async () => {
   const rows = await getDb().select().from(schema_exports.products).orderBy(desc(schema_exports.products.createdAt), desc(schema_exports.products.id));
   return rows.map(toPublic);
+}).get("/categories", async () => {
+  const rows = await getDb().select().from(schema_exports.categories).orderBy(asc(schema_exports.categories.sort), asc(schema_exports.categories.key));
+  return rows.map((c) => ({ key: c.key, name: c.name, emoji: c.emoji }));
 }).get("/uploads/:name", async ({ params, set }) => {
   if (isProd() || !/^[a-f0-9]{32}\.(jpg|png|webp)$/.test(params.name)) {
     set.status = 404;
@@ -421,16 +434,79 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
     await destroySession(getCookie(request, SESSION_COOKIE));
     set.headers["set-cookie"] = sessionCookie("", null);
     return { ok: true };
+  }).post("/categories", async ({ body, set }) => {
+    const db = getDb();
+    const name = cleanText(body.name);
+    const emoji = cleanText(body.emoji);
+    if (!name) {
+      set.status = 422;
+      return { error: "Nama kategori wajib diisi" };
+    }
+    const all = await db.select().from(schema_exports.categories);
+    if (all.length >= 30) {
+      set.status = 409;
+      return { error: "Jumlah kategori sudah mencapai batas (30)" };
+    }
+    if (all.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+      set.status = 409;
+      return { error: "Nama kategori sudah ada" };
+    }
+    const base = slugify(name);
+    let key = base;
+    for (let i = 2; all.some((c) => c.key === key); i++) key = `${base.slice(0, 26)}_${i}`;
+    const sort = all.reduce((m, c) => Math.max(m, c.sort), 0) + 1;
+    await db.insert(schema_exports.categories).values({ key, name, emoji, sort });
+    return { key };
+  }, { body: t.Object({ name: text2(1, 40), emoji: text2(0, 16) }) }).put("/categories/:key", async ({ params, body, set }) => {
+    const db = getDb();
+    const name = cleanText(body.name);
+    const emoji = cleanText(body.emoji);
+    if (!name) {
+      set.status = 422;
+      return { error: "Nama kategori wajib diisi" };
+    }
+    const [row] = await db.select().from(schema_exports.categories).where(eq2(schema_exports.categories.key, params.key)).limit(1);
+    if (!row) {
+      set.status = 404;
+      return { error: "Kategori tidak ditemukan" };
+    }
+    const dupe = await db.select({ key: schema_exports.categories.key }).from(schema_exports.categories).where(and2(sql2`lower(${schema_exports.categories.name}) = ${name.toLowerCase()}`, ne(schema_exports.categories.key, params.key)));
+    if (dupe.length > 0) {
+      set.status = 409;
+      return { error: "Nama kategori sudah ada" };
+    }
+    await db.update(schema_exports.categories).set({ name, emoji }).where(eq2(schema_exports.categories.key, params.key));
+    await db.update(schema_exports.products).set({ categoryName: name }).where(eq2(schema_exports.products.category, params.key));
+    return { ok: true };
+  }, { body: t.Object({ name: text2(1, 40), emoji: text2(0, 16) }) }).delete("/categories/:key", async ({ params, set }) => {
+    const db = getDb();
+    const [row] = await db.select().from(schema_exports.categories).where(eq2(schema_exports.categories.key, params.key)).limit(1);
+    if (!row) {
+      set.status = 404;
+      return { error: "Kategori tidak ditemukan" };
+    }
+    const [used] = await db.select({ n: sql2`count(*)` }).from(schema_exports.products).where(eq2(schema_exports.products.category, params.key));
+    if (Number(used.n) > 0) {
+      set.status = 409;
+      return { error: `Masih ada ${Number(used.n)} produk di kategori ini. Pindahkan atau hapus produknya dulu.` };
+    }
+    await db.delete(schema_exports.categories).where(eq2(schema_exports.categories.key, params.key));
+    return { ok: true };
   }).post("/products", async ({ body, set }) => {
     if (!isAllowedImage(body.image)) {
       set.status = 422;
       return { error: "Foto tidak valid" };
     }
+    const categoryName = await getCategoryName(body.category);
+    if (!categoryName) {
+      set.status = 422;
+      return { error: "Kategori tidak ditemukan" };
+    }
     const id = "prod_" + randomUUID().replace(/-/g, "").slice(0, 16);
     await getDb().insert(schema_exports.products).values({
       id,
       ...body,
-      categoryName: CATEGORIES[body.category],
+      categoryName,
       rating: 50,
       reviews: 1,
       badge: body.badge || "New Arrival"
@@ -447,7 +523,12 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
       set.status = 404;
       return { error: "Produk tidak ditemukan" };
     }
-    await db.update(schema_exports.products).set({ ...body, categoryName: CATEGORIES[body.category] }).where(eq2(schema_exports.products.id, params.id));
+    const categoryName = await getCategoryName(body.category);
+    if (!categoryName) {
+      set.status = 422;
+      return { error: "Kategori tidak ditemukan" };
+    }
+    await db.update(schema_exports.products).set({ ...body, categoryName }).where(eq2(schema_exports.products.id, params.id));
     if (old.image !== body.image) await removeImage(old.image);
     return { ok: true };
   }, { body: productBody }).delete("/products/:id", async ({ params, set }) => {

@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && npm run build:api",
+    "build": "vite build && npm run build:api && tsx scripts/migrate-ci.ts",
     "preview": "vite preview",
     "hash-password": "tsx scripts/hash-password.ts",
     "db:migrate": "tsx --env-file=.env scripts/migrate.ts",

@@ -1,0 +1,1 @@
+ALTER TABLE `products` MODIFY COLUMN `category` varchar(30) NOT NULL;

@@ -8,6 +8,20 @@
       "when": 1794542888309,
       "tag": "0000_true_albert_cleary",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1794565194464,
+      "tag": "0001_shocking_monster_badoon",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1794565440866,
+      "tag": "0002_useful_medusa",
+      "breakpoints": true
     }
   ]
 }
