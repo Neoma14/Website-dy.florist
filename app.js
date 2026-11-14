@@ -551,6 +551,165 @@ const SCENES = {
     '<g fill="var(--c)" stroke="var(--c-ln)" stroke-width="1.5"><circle cx="150" cy="52" r="6"/><circle cx="262" cy="46" r="5"/><circle cx="352" cy="200" r="6"/><circle cx="48" cy="210" r="5"/><circle cx="200" cy="350" r="6"/></g>'
 };
 
+// ---------- Pratinjau foto realistis: warna bunga/kertas diubah langsung di canvas ----------
+// Hanya piksel berwarna pink (bunga, kertas, kotak) yang diwarnai ulang; hijau daun, kayu, krem,
+// putih, dan latar tidak berubah, sehingga pencahayaan dan tekstur foto asli tetap terjaga.
+const PHOTO_SCENES = {
+  hand_bouquet: '/assets/bouquet.jpg',
+  gift_craft: '/assets/gift.jpg'
+};
+const PHOTO_SIZE = 720;
+const photoCache = {};
+
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return [0, 0, l];
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0));
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  return [h * 60, s, l];
+}
+
+function hslToRgb(h, s, l) {
+  h = ((h % 360) + 360) % 360 / 360;
+  if (s === 0) { const v = Math.round(l * 255); return [v, v, v]; }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const f = (t) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  return [Math.round(f(h + 1 / 3) * 255), Math.round(f(h) * 255), Math.round(f(h - 1 / 3) * 255)];
+}
+
+const smoothstep = (a, b, x) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+// Bobot 0..1: seberapa "pink" sebuah piksel. Batasnya sengaja halus (tanpa potongan tegas)
+// agar tekstur kertas dan bayangan tidak berbercak setelah diwarnai ulang.
+function pinkWeight(h, s, l) {
+  let hueW = 0;
+  if (h >= 315 || h <= 16) hueW = 1;
+  else if (h > 16 && h < 28) hueW = (28 - h) / 12;
+  else if (h < 315 && h > 290) hueW = (h - 290) / 25;
+  if (hueW === 0) return 0;
+  return hueW * smoothstep(0.09, 0.22, s) * smoothstep(0.05, 0.14, l) * (1 - smoothstep(0.95, 0.995, l));
+}
+
+function boxBlur(src, size, r) {
+  const tmp = new Float32Array(src.length);
+  const out = new Float32Array(src.length);
+  const win = 2 * r + 1;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let sum = 0;
+      for (let k = -r; k <= r; k++) {
+        const xx = Math.min(size - 1, Math.max(0, x + k));
+        sum += src[y * size + xx];
+      }
+      tmp[y * size + x] = sum / win;
+    }
+  }
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let sum = 0;
+      for (let k = -r; k <= r; k++) {
+        const yy = Math.min(size - 1, Math.max(0, y + k));
+        sum += tmp[yy * size + x];
+      }
+      out[y * size + x] = sum / win;
+    }
+  }
+  return out;
+}
+
+function loadPhotoData(src) {
+  if (!photoCache[src]) {
+    photoCache[src] = new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const cv = document.createElement('canvas');
+        cv.width = PHOTO_SIZE;
+        cv.height = PHOTO_SIZE;
+        const ctx = cv.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0, PHOTO_SIZE, PHOTO_SIZE);
+        const data = ctx.getImageData(0, 0, PHOTO_SIZE, PHOTO_SIZE);
+        const px = data.data;
+        const N = PHOTO_SIZE * PHOTO_SIZE;
+        const H = new Float32Array(N);
+        const S = new Float32Array(N);
+        const L = new Float32Array(N);
+        let W = new Float32Array(N);
+        for (let n = 0; n < N; n++) {
+          const i = n * 4;
+          const [h, s, l] = rgbToHsl(px[i], px[i + 1], px[i + 2]);
+          H[n] = h; S[n] = s; L[n] = l;
+          W[n] = pinkWeight(h, s, l);
+        }
+        W = boxBlur(W, PHOTO_SIZE, 2); // haluskan peta agar tekstur kertas tidak berbercak
+        const idx = [];
+        for (let n = 0; n < N; n++) {
+          if (W[n] > 0.03) idx.push(n);
+        }
+        resolve({
+          base: new Uint8ClampedArray(px),
+          idx: Uint32Array.from(idx),
+          hs: Float32Array.from(idx, (n) => H[n]),
+          ss: Float32Array.from(idx, (n) => S[n]),
+          ls: Float32Array.from(idx, (n) => L[n]),
+          ws: Float32Array.from(idx, (n) => Math.min(1, W[n] * 1.1))
+        });
+      };
+      img.onerror = () => reject(new Error('foto gagal dimuat'));
+      img.src = src;
+    });
+  }
+  return photoCache[src];
+}
+
+function paintPhoto(canvas, photo, hex) {
+  const [th, ts, tl] = rgbToHsl(...[1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)));
+  const out = new Uint8ClampedArray(photo.base);
+  const { idx, hs, ss, ls, ws } = photo;
+  for (let k = 0; k < idx.length; k++) {
+    const i = idx[k] * 4;
+    const hn = hs[k] >= 180 ? hs[k] - 360 : hs[k];
+    // Rona baru mengikuti warna target, dengan sedikit variasi alami dari foto asli
+    const h2 = th + (hn + 20) * 0.22;
+    // Kejenuhan baru sebanding dengan kejenuhan asli: area pucat tetap pucat, area pekat tetap pekat
+    const s2 = Math.min(1, ts * Math.min(1.3, ss[k] / 0.5));
+    // Pencahayaan: terang-gelap foto dipertahankan di sekitar kecerahan warna target
+    const l2 = Math.min(0.98, Math.max(0.02, tl + (ls[k] - 0.78) * 0.9));
+    const [r, g, b] = hslToRgb(h2, s2, l2);
+    const w = ws[k];
+    out[i] = photo.base[i] * (1 - w) + r * w;
+    out[i + 1] = photo.base[i + 1] * (1 - w) + g * w;
+    out[i + 2] = photo.base[i + 2] * (1 - w) + b * w;
+  }
+  canvas.getContext('2d').putImageData(new ImageData(out, PHOTO_SIZE, PHOTO_SIZE), 0, 0);
+}
+
+let illustrationToken = 0;
+
+function drawIllustrationSvg(art, id) {
+  const scene = SCENES[id] || SCENES.lainnya;
+  art.classList.remove('is-photo');
+  art.dataset.scene = id;
+  art.innerHTML = `<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${scene()}</svg>`;
+}
+
 function renderCustomIllustration() {
   const box = document.getElementById('customVisualPreview');
   const art = document.getElementById('customIllustration');
@@ -561,9 +720,28 @@ function renderCustomIllustration() {
   box.style.setProperty('--c-d', mixHex(hex, '#000000', 0.22));
   box.style.setProperty('--c-ln', mixHex(hex, '#000000', 0.5));
   box.style.setProperty('--c-bg', mixHex(hex, '#FFFFFF', 0.86));
-  const scene = SCENES[customizerState.type.id] || SCENES.lainnya;
-  art.innerHTML = `<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${scene()}</svg>`;
-  art.setAttribute('aria-label', `Ilustrasi ${customizerState.type.name} warna ${customizerState.color.name}`);
+  art.setAttribute('aria-label', `Pratinjau ${customizerState.type.name} warna ${customizerState.color.name}`);
+
+  const id = customizerState.type.id;
+  const photoSrc = PHOTO_SCENES[id];
+  const token = ++illustrationToken;
+  if (!photoSrc) {
+    drawIllustrationSvg(art, id);
+    return;
+  }
+  loadPhotoData(photoSrc).then((photo) => {
+    if (token !== illustrationToken) return; // pilihan sudah berganti
+    let canvas = art.querySelector('canvas');
+    if (!canvas || art.dataset.scene !== id) {
+      art.innerHTML = `<canvas width="${PHOTO_SIZE}" height="${PHOTO_SIZE}"></canvas>`;
+      canvas = art.querySelector('canvas');
+      art.dataset.scene = id;
+    }
+    art.classList.add('is-photo');
+    paintPhoto(canvas, photo, hex);
+  }).catch(() => {
+    if (token === illustrationToken) drawIllustrationSvg(art, id);
+  });
 }
 
 // ---------- Kontrol ----------
