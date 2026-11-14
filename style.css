@@ -2665,3 +2665,31 @@ button {
 .custom-addon-fields small {
   color: var(--color-text-muted);
 }
+
+.custom-addon-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr auto;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.ca-remove {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-light, #e3d6dc);
+  border-radius: 50%;
+  background: #fff;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .custom-addon-row {
+    grid-template-columns: 1fr auto;
+  }
+  .custom-addon-row .ca-name {
+    grid-column: 1 / -1;
+  }
+}

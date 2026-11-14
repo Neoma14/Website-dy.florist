@@ -825,31 +825,64 @@ function setupCustomizer() {
     });
   }
 
-  // Add-ons (cokelat, lilin, dan satu tambahan custom dengan estimasi harga dari pelanggan)
+  // Add-ons (cokelat, lilin, dan beberapa tambahan custom dengan estimasi harga dari pelanggan)
+  const MAX_CUSTOM_ROWS = 5;
   const addonCheckboxes = document.querySelectorAll('#customAddonsOptions input[type="checkbox"]');
   const customFields = document.getElementById('customAddonFields');
-  const customName = document.getElementById('customAddonName');
-  const customPrice = document.getElementById('customAddonPrice');
+  const rowsBox = document.getElementById('customAddonRows');
+  const addRowBtn = document.getElementById('btnAddCustomRow');
   const collectAddons = () => {
     const selected = [];
     addonCheckboxes.forEach(c => {
-      if (!c.checked) return;
-      if (c.value === 'custom') {
-        const price = Math.min(10000000, Math.max(0, parseInt(customPrice.value, 10) || 0));
-        const label = (customName.value || '').trim().slice(0, 60);
-        selected.push({ id: 'custom', name: label ? `Custom: ${label}` : 'Custom', price });
-      } else {
+      if (c.checked && c.value !== 'custom') {
         selected.push({ id: c.value, name: c.dataset.name, price: parseInt(c.dataset.price, 10) });
       }
     });
+    const toggle = document.getElementById('customAddonToggle');
+    if (toggle && toggle.checked) {
+      rowsBox.querySelectorAll('.custom-addon-row').forEach((row, i) => {
+        const label = row.querySelector('.ca-name').value.trim().slice(0, 60);
+        const price = Math.min(10000000, Math.max(0, parseInt(row.querySelector('.ca-price').value, 10) || 0));
+        if (!label && !price) return;
+        selected.push({ id: 'custom' + i, name: label ? `Custom: ${label}` : 'Custom', price });
+      });
+    }
     customizerState.addons = selected;
     updateCustomizerSummary();
   };
+  const addCustomRow = () => {
+    if (rowsBox.children.length >= MAX_CUSTOM_ROWS) return;
+    const row = document.createElement('div');
+    row.className = 'custom-addon-row';
+    const name = document.createElement('input');
+    name.type = 'text'; name.className = 'input-field ca-name'; name.maxLength = 60;
+    name.placeholder = 'Nama tambahan (misal: boneka, balon)';
+    const price = document.createElement('input');
+    price.type = 'number'; price.className = 'input-field ca-price';
+    price.min = '0'; price.max = '10000000'; price.step = '1000'; price.inputMode = 'numeric';
+    price.placeholder = 'Estimasi harga (Rp)';
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'ca-remove'; del.textContent = '×';
+    del.setAttribute('aria-label', 'Hapus item');
+    del.addEventListener('click', () => {
+      row.remove();
+      if (rowsBox.children.length === 0) addCustomRow();
+      addRowBtn.hidden = false;
+      collectAddons();
+    });
+    row.append(name, price, del);
+    rowsBox.appendChild(row);
+    addRowBtn.hidden = rowsBox.children.length >= MAX_CUSTOM_ROWS;
+  };
   addonCheckboxes.forEach(chk => chk.addEventListener('change', () => {
-    if (chk.value === 'custom' && customFields) customFields.hidden = !chk.checked;
+    if (chk.value === 'custom' && customFields) {
+      customFields.hidden = !chk.checked;
+      if (chk.checked && rowsBox.children.length === 0) addCustomRow();
+    }
     collectAddons();
   }));
-  [customName, customPrice].forEach(el => el && el.addEventListener('input', collectAddons));
+  if (rowsBox) rowsBox.addEventListener('input', collectAddons);
+  if (addRowBtn) addRowBtn.addEventListener('click', () => { addCustomRow(); });
 
   // Nama penerima dan ucapan
   const recipientInput = document.getElementById('customRecipientName');
