@@ -8,7 +8,7 @@ import { getDb, schema } from './db';
 import { describeHash, verifyPassword } from './lib/password';
 import {
   SESSION_COOKIE, SESSION_TTL_MS, clearFailedLogins, clientIp, createSession, destroySession,
-  detectImageType, hashIp, isValidSession, loginGate, rateLimited, registerFailedLogin, createRecoveryToken, useRecoveryToken,
+  detectImageType, hashIp, isValidSession, loginGate, LOCK_MS, rateLimited, registerFailedLogin, createRecoveryToken, useRecoveryToken,
 } from './lib/security';
 
 
@@ -305,10 +305,10 @@ export const app = new Elysia({ prefix: '/api' })
       if (fail.state === 'locked') {
         set.status = 429;
         set.headers['retry-after'] = String(fail.retryAfter);
-        return { error: '3x password salah. Login dikunci 15 menit.' };
+        return { error: `3x password salah. Login dikunci ${LOCK_MS / 60000} menit.` };
       }
       set.status = 401;
-      return { error: `Password salah. Sisa ${fail.remaining} percobaan sebelum dikunci 15 menit.` };
+      return { error: `Password salah. Sisa ${fail.remaining} percobaan sebelum dikunci ${LOCK_MS / 60000} menit.` };
     }
     await clearFailedLogins(ipHash);
     const { token, expires } = await createSession();

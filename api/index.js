@@ -22,7 +22,7 @@ async function sendBlockedAlert(info) {
   const html = `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#2b2227">
   <h2 style="color:#E4007F;margin-bottom:4px">dy.florist</h2>
   <h3 style="margin-top:0">Login admin diblokir</h3>
-  <p>Ada percobaan login ke halaman admin dengan password salah berulang kali. Setelah dikunci 15 menit, percobaan itu masih salah, sehingga login dari perangkat tersebut <strong>diblokir</strong>.</p>
+  <p>Ada percobaan login ke halaman admin dengan password salah berulang kali. Setelah dikunci 5 menit, percobaan itu masih salah, sehingga login dari perangkat tersebut <strong>diblokir</strong>.</p>
   <table style="font-size:14px;margin:12px 0">
     <tr><td style="padding:2px 12px 2px 0;color:#6c6267">Waktu</td><td>${escHtml(when)}</td></tr>
     <tr><td style="padding:2px 12px 2px 0;color:#6c6267">Alamat IP</td><td>${escHtml(info.ip)}</td></tr>
@@ -234,7 +234,7 @@ async function destroySession(token) {
 }
 var LOGIN_WINDOW_MS = 15 * 60 * 1e3;
 var LOGIN_MAX_PER_IP = 3;
-var LOCK_MS = 15 * 60 * 1e3;
+var LOCK_MS = 5 * 60 * 1e3;
 var LOGIN_MAX_GLOBAL = 100;
 var LEVEL1_FORGET_MS = 24 * 60 * 60 * 1e3;
 async function loginGate(ipHash) {
@@ -562,10 +562,10 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
     if (fail.state === "locked") {
       set.status = 429;
       set.headers["retry-after"] = String(fail.retryAfter);
-      return { error: "3x password salah. Login dikunci 15 menit." };
+      return { error: `3x password salah. Login dikunci ${LOCK_MS / 6e4} menit.` };
     }
     set.status = 401;
-    return { error: `Password salah. Sisa ${fail.remaining} percobaan sebelum dikunci 15 menit.` };
+    return { error: `Password salah. Sisa ${fail.remaining} percobaan sebelum dikunci ${LOCK_MS / 6e4} menit.` };
   }
   await clearFailedLogins(ipHash);
   const { token, expires } = await createSession();

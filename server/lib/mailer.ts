@@ -21,7 +21,7 @@ export async function sendBlockedAlert(info: { token: string; ip: string; userAg
   const html = `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#2b2227">
   <h2 style="color:#E4007F;margin-bottom:4px">dy.florist</h2>
   <h3 style="margin-top:0">Login admin diblokir</h3>
-  <p>Ada percobaan login ke halaman admin dengan password salah berulang kali. Setelah dikunci 15 menit, percobaan itu masih salah, sehingga login dari perangkat tersebut <strong>diblokir</strong>.</p>
+  <p>Ada percobaan login ke halaman admin dengan password salah berulang kali. Setelah dikunci 5 menit, percobaan itu masih salah, sehingga login dari perangkat tersebut <strong>diblokir</strong>.</p>
   <table style="font-size:14px;margin:12px 0">
     <tr><td style="padding:2px 12px 2px 0;color:#6c6267">Waktu</td><td>${escHtml(when)}</td></tr>
     <tr><td style="padding:2px 12px 2px 0;color:#6c6267">Alamat IP</td><td>${escHtml(info.ip)}</td></tr>

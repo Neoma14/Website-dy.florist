@@ -1530,7 +1530,7 @@ async function showAdminDashboard() {
   updateAdminBadges();
 }
 
-// Pesan status di form login (kunci 15 menit / blokir)
+// Pesan status di form login (kunci 5 menit / blokir)
 function setLoginAlert(message, kind) {
   const box = document.getElementById('adminLoginAlert');
   if (!box) return;

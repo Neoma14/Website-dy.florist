@@ -114,7 +114,7 @@ test('login berhasil: cookie HttpOnly + SameSite=Strict, sesi valid, logout menc
   assert.equal((await call('/api/admin/session', { cookie })).status, 401);
 });
 
-test('pemblokiran: 3x salah -> kunci 15 menit, salah lagi setelahnya -> blokir + pemulihan', async () => {
+test('pemblokiran: 3x salah -> kunci 5 menit, salah lagi setelahnya -> blokir + pemulihan', async () => {
   const ip = newIp();
   const login = (password: string) => call('/api/admin/login', { method: 'POST', ip, ...json({ password }) });
   const r1 = await login('salah1');
@@ -123,13 +123,13 @@ test('pemblokiran: 3x salah -> kunci 15 menit, salah lagi setelahnya -> blokir +
   assert.equal((await login('salah2')).status, 401);
   const r3 = await login('salah3');
   assert.equal(r3.status, 429);
-  assert.equal(Number(r3.headers.get('retry-after')), 900);
+  assert.equal(Number(r3.headers.get('retry-after')), 300);
   // selama dikunci, password benar pun ditolak
   assert.equal((await login(PASSWORD)).status, 429);
   // IP lain tidak terpengaruh
   assert.equal((await call('/api/admin/login', { method: 'POST', ip: newIp(), ...json({ password: PASSWORD }) })).status, 200);
 
-  // kunci 15 menit berakhir (disimulasikan)
+  // kunci 5 menit berakhir (disimulasikan)
   await getDb().update(schema.loginBlocks).set({ lockedUntil: new Date(Date.now() - 1000) });
   const r4 = await login('salah4');
   assert.equal(r4.status, 403);

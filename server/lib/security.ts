@@ -42,12 +42,12 @@ export async function destroySession(token: string | undefined) {
 }
 
 // --- Pemblokiran login (per IP) ---
-// 1) 3x password salah dalam 15 menit  -> dikunci 15 menit (level 1)
+// 1) 3x password salah dalam 15 menit  -> dikunci 5 menit (level 1)
 // 2) setelah kunci habis, salah lagi  -> diblokir (level 2) sampai dibuka lewat link pemulihan di email
 // Batas global 100 gagal / 15 menit tetap berlaku untuk serangan dari banyak IP.
 export const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 export const LOGIN_MAX_PER_IP = 3;
-export const LOCK_MS = 15 * 60 * 1000;
+export const LOCK_MS = 5 * 60 * 1000;
 const LOGIN_MAX_GLOBAL = 100;
 const LEVEL1_FORGET_MS = 24 * 60 * 60 * 1000; // riwayat kunci dilupakan 24 jam setelah kunci berakhir
 
