@@ -190,20 +190,6 @@ let cart = loadCart();
 let activeFilter = 'all';
 let searchQuery = '';
 
-// Bespoke Customizer State
-const customizerState = {
-  base: {
-    type: 'bouquet',
-    name: 'Hand Bouquet Korean',
-    price: 280000,
-    image: '/assets/bouquet.jpg'
-  },
-  color: 'Signature Rose Magenta',
-  wrap: 'Matte Blush Pink + Ivory Silk',
-  addons: [], // array of { id, name, price }
-  recipient: '',
-  cardMessage: ''
-};
 
 // ==========================================
 // 3. INITIALIZATION
@@ -378,75 +364,298 @@ window.resetFilters = function() {
 // ==========================================
 // 5. BESPOKE STUDIO (CUSTOMIZER)
 // ==========================================
+// Harga dasar hanya ada untuk jenis yang sudah punya harga; jenis lain ditentukan lewat konsultasi.
+const CUSTOM_TYPES = [
+  { id: 'hand_bouquet', name: 'Hand Bouquet (Buket)', emoji: '💐', price: 280000 },
+  { id: 'table', name: 'Table Arrangement', emoji: '🌼', price: null },
+  { id: 'standing', name: 'Standing Flower', emoji: '🌺', price: null },
+  { id: 'board', name: 'Bunga Papan (Flower Board)', emoji: '🖼️', price: null },
+  { id: 'parcel', name: 'Parcel', emoji: '🧺', price: null },
+  { id: 'gift_craft', name: 'Gift Craft & Hampers', emoji: '🎁', price: 490000 },
+  { id: 'dekorasi', name: 'Dekorasi', emoji: '🎊', price: null },
+  { id: 'undangan', name: 'Undangan Digital', emoji: '💌', price: null },
+  { id: 'seserahan', name: 'Seserahan', emoji: '🎀', price: null },
+  { id: 'lainnya', name: 'Lainnya (Request Khusus)', emoji: '✨', price: null }
+];
+
+const CUSTOM_COLORS = [
+  { name: 'Magenta Rose', hex: '#E4007F' },
+  { name: 'Pink Blush', hex: '#F8B4C8' },
+  { name: 'Soft Pink', hex: '#FFD6E0' },
+  { name: 'Merah Cherry', hex: '#D7263D' },
+  { name: 'Burgundy', hex: '#7B1E3A' },
+  { name: 'Peach', hex: '#FFB38A' },
+  { name: 'Orange Sunset', hex: '#FF8C42' },
+  { name: 'Kuning Butter', hex: '#FFD93D' },
+  { name: 'Cream Ivory', hex: '#FFF1D6' },
+  { name: 'Putih Pearl', hex: '#FFFFFF' },
+  { name: 'Mint Fresh', hex: '#A8E6CF' },
+  { name: 'Hijau Sage', hex: '#8FB996' },
+  { name: 'Sky Blue', hex: '#8EC9FF' },
+  { name: 'Royal Blue', hex: '#3F6FD8' },
+  { name: 'Lilac Purple', hex: '#C8A2C8' },
+  { name: 'Deep Purple', hex: '#7B2CBF' },
+  { name: 'Champagne Gold', hex: '#D4AF37' },
+  { name: 'Hitam Elegan', hex: '#2B2B2B' }
+];
+
+const customizerState = {
+  type: CUSTOM_TYPES[0],
+  color: CUSTOM_COLORS[0],
+  addons: [],
+  recipient: '',
+  cardMessage: ''
+};
+
+const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+
+function mixHex(hex, other, ratio) {
+  const rgb = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const a = rgb(hex);
+  const b = rgb(other);
+  return '#' + a.map((v, i) => Math.round(v * (1 - ratio) + b[i] * ratio).toString(16).padStart(2, '0')).join('');
+}
+
+// ---------- Ilustrasi pratinjau (SVG; warna mengikuti CSS variable) ----------
+const SV = {
+  bloom(cx, cy, r) {
+    const petals = [0, 72, 144, 216, 288].map((a) => {
+      const rad = (a - 90) * Math.PI / 180;
+      const x = (cx + Math.cos(rad) * r * 0.62).toFixed(1);
+      const y = (cy + Math.sin(rad) * r * 0.62).toFixed(1);
+      return `<circle cx="${x}" cy="${y}" r="${(r * 0.52).toFixed(1)}" fill="var(--c)" stroke="var(--c-ln)" stroke-width="1.6"/>`;
+    }).join('');
+    return `<g>${petals}<circle cx="${cx}" cy="${cy}" r="${(r * 0.36).toFixed(1)}" fill="var(--c-l)" stroke="var(--c-ln)" stroke-width="1.6"/></g>`;
+  },
+  leaf(x, y, rot, len = 44) {
+    return `<ellipse cx="${x}" cy="${y}" rx="${(len * 0.26).toFixed(1)}" ry="${(len / 2).toFixed(1)}" transform="rotate(${rot} ${x} ${y})" fill="#86BD84" stroke="#4F8F55" stroke-width="1.4"/>`;
+  },
+  bow(cx, cy, s = 1, fill = 'var(--c)') {
+    const w = 34 * s;
+    const h = 20 * s;
+    return `<g><ellipse cx="${cx - w * 0.85}" cy="${cy}" rx="${w}" ry="${h}" transform="rotate(-22 ${cx - w * 0.85} ${cy})" fill="${fill}" stroke="var(--c-ln)" stroke-width="1.8"/>` +
+      `<ellipse cx="${cx + w * 0.85}" cy="${cy}" rx="${w}" ry="${h}" transform="rotate(22 ${cx + w * 0.85} ${cy})" fill="${fill}" stroke="var(--c-ln)" stroke-width="1.8"/>` +
+      `<circle cx="${cx}" cy="${cy}" r="${(11 * s).toFixed(1)}" fill="var(--c-d)" stroke="var(--c-ln)" stroke-width="1.8"/></g>`;
+  },
+  star(cx, cy, R, r, fill = 'var(--c)') {
+    const pts = [];
+    for (let i = 0; i < 10; i++) {
+      const rad = (i * 36 - 90) * Math.PI / 180;
+      const rr = i % 2 === 0 ? R : r;
+      pts.push(`${(cx + Math.cos(rad) * rr).toFixed(1)},${(cy + Math.sin(rad) * rr).toFixed(1)}`);
+    }
+    return `<polygon points="${pts.join(' ')}" fill="${fill}" stroke="var(--c-ln)" stroke-width="1.8" stroke-linejoin="round"/>`;
+  },
+  shadow(cx = 200, cy = 362, rx = 125) {
+    return `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="11" fill="rgba(0,0,0,0.09)"/>`;
+  }
+};
+
+const SCENES = {
+  hand_bouquet: () => SV.shadow() +
+    SV.leaf(135, 175, -55, 70) + SV.leaf(265, 175, 55, 70) + SV.leaf(200, 120, 0, 78) +
+    '<polygon points="105,200 295,200 228,352 172,352" fill="#F7E9DC" stroke="#C9AE98" stroke-width="3" stroke-linejoin="round"/>' +
+    '<path d="M150 205 L190 350 M250 205 L210 350" stroke="#E2CFBE" stroke-width="3" fill="none"/>' +
+    SV.bloom(200, 130, 36) + SV.bloom(150, 165, 33) + SV.bloom(250, 165, 33) +
+    SV.bloom(170, 110, 28) + SV.bloom(230, 110, 28) + SV.bloom(200, 190, 31) +
+    '<polygon points="200,300 178,356 200,342 222,356" fill="var(--c-d)" stroke="var(--c-ln)" stroke-width="1.8" stroke-linejoin="round"/>' +
+    SV.bow(200, 292, 0.95),
+
+  table: () => SV.shadow(200, 352, 150) +
+    '<rect x="40" y="330" width="320" height="16" rx="6" fill="#EAD9C8" stroke="#C9AE98" stroke-width="2.5"/>' +
+    SV.leaf(120, 232, -75, 54) + SV.leaf(280, 232, 75, 54) + SV.leaf(155, 215, -35, 60) + SV.leaf(245, 215, 35, 60) +
+    SV.bloom(200, 140, 31) +
+    SV.bloom(165, 172, 33) + SV.bloom(235, 172, 33) +
+    SV.bloom(128, 208, 30) + SV.bloom(200, 205, 35) + SV.bloom(272, 208, 30) +
+    '<path d="M108 252 Q108 330 200 330 Q292 330 292 252 Z" fill="#FFFFFF" stroke="#CFC4BE" stroke-width="3"/>' +
+    '<ellipse cx="200" cy="252" rx="92" ry="14" fill="#F3ECE8" stroke="#CFC4BE" stroke-width="3"/>' +
+    '<path d="M130 285 Q200 312 270 285" stroke="var(--c)" stroke-width="6" fill="none" stroke-linecap="round"/>',
+
+  standing: () => SV.shadow(200, 360, 130) +
+    '<g stroke="#9B7B63" stroke-width="7" stroke-linecap="round" fill="none"><path d="M200 130 L138 352"/><path d="M200 130 L262 352"/><path d="M200 130 L200 352"/><path d="M165 262 L235 262"/></g>' +
+    SV.leaf(100, 125, -60, 62) + SV.leaf(300, 125, 60, 62) + SV.leaf(200, 48, 0, 52) + SV.leaf(150, 190, -35, 52) + SV.leaf(250, 190, 35, 52) +
+    SV.bloom(200, 92, 36) + SV.bloom(155, 108, 34) + SV.bloom(245, 108, 34) +
+    SV.bloom(122, 142, 31) + SV.bloom(278, 142, 31) + SV.bloom(165, 152, 36) + SV.bloom(235, 152, 36) +
+    SV.bloom(200, 128, 38) + SV.bloom(200, 186, 30) +
+    '<path d="M118 210 Q200 246 282 210" stroke="var(--c-d)" stroke-width="9" fill="none" stroke-linecap="round"/>',
+
+  board: () => SV.shadow(200, 358, 140) +
+    '<g stroke="#9B7B63" stroke-width="7" stroke-linecap="round" fill="none"><path d="M110 250 L88 350"/><path d="M290 250 L312 350"/><path d="M104 300 L296 300"/></g>' +
+    '<rect x="62" y="78" width="276" height="176" rx="10" fill="#FFFFFF" stroke="var(--c-ln)" stroke-width="3.5"/>' +
+    '<rect x="76" y="92" width="248" height="148" rx="6" fill="none" stroke="var(--c)" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round"/>' +
+    '<text x="200" y="158" text-anchor="middle" font-family="Georgia, serif" font-size="26" font-weight="700" fill="var(--c-d)">Selamat &amp; Sukses</text>' +
+    '<text x="200" y="190" text-anchor="middle" font-family="Georgia, serif" font-size="15" fill="var(--c-ln)">Semoga bahagia selalu</text>' +
+    SV.leaf(72, 100, -40, 50) + SV.leaf(330, 100, 40, 50) + SV.leaf(60, 244, 30, 44) + SV.leaf(340, 244, -30, 44) +
+    SV.bloom(92, 96, 28) + SV.bloom(128, 84, 22) + SV.bloom(308, 96, 28) + SV.bloom(272, 84, 22) +
+    SV.bloom(78, 236, 24) + SV.bloom(322, 236, 24) +
+    SV.bloom(130, 252, 20) + SV.bloom(165, 258, 22) + SV.bloom(200, 262, 24) + SV.bloom(235, 258, 22) + SV.bloom(270, 252, 20),
+
+  parcel: () => SV.shadow(200, 358, 130) +
+    '<path d="M128 245 Q200 70 272 245" fill="none" stroke="#A98259" stroke-width="9" stroke-linecap="round"/>' +
+    '<rect x="122" y="150" width="30" height="100" rx="12" fill="var(--c-l)" stroke="var(--c-ln)" stroke-width="2.5"/>' +
+    '<rect x="246" y="168" width="38" height="82" rx="9" fill="var(--c-d)" stroke="var(--c-ln)" stroke-width="2.5"/>' +
+    '<rect x="166" y="188" width="70" height="62" rx="6" fill="#FFFFFF" stroke="var(--c-ln)" stroke-width="2.5"/>' +
+    '<rect x="194" y="188" width="14" height="62" fill="var(--c)"/><rect x="166" y="212" width="70" height="12" fill="var(--c)"/>' +
+    SV.leaf(160, 175, -30, 50) + SV.leaf(244, 168, 30, 50) + SV.bloom(200, 160, 26) +
+    '<path d="M92 240 Q200 66 308 240" fill="rgba(255,255,255,0.32)" stroke="rgba(255,255,255,0.9)" stroke-width="3"/>' +
+    '<path d="M95 240 L305 240 L285 345 L115 345 Z" fill="#D9B88F" stroke="#A98259" stroke-width="3" stroke-linejoin="round"/>' +
+    '<g stroke="#B99468" stroke-width="2.5" fill="none"><path d="M99 264 H301"/><path d="M104 290 H296"/><path d="M109 316 H291"/><path d="M135 242 L128 344 M175 242 L172 344 M215 242 L214 344 M255 242 L258 344"/></g>' +
+    SV.bow(200, 105, 0.8),
+
+  gift_craft: () => SV.shadow(200, 358, 135) +
+    '<rect x="98" y="192" width="204" height="150" rx="9" fill="var(--c-l)" stroke="var(--c-ln)" stroke-width="3.5"/>' +
+    '<rect x="186" y="192" width="28" height="150" fill="var(--c-d)" opacity="0.92"/>' +
+    '<rect x="98" y="262" width="204" height="22" fill="var(--c-d)" opacity="0.92"/>' +
+    '<rect x="86" y="158" width="228" height="46" rx="9" fill="var(--c)" stroke="var(--c-ln)" stroke-width="3.5"/>' +
+    '<rect x="186" y="158" width="28" height="46" fill="var(--c-d)" opacity="0.92"/>' +
+    SV.bow(200, 138, 1.05) +
+    '<text x="82" y="116" font-size="26" fill="var(--c)">✦</text><text x="304" y="124" font-size="22" fill="var(--c-d)">✦</text><text x="318" y="92" font-size="14" fill="var(--c)">✦</text>',
+
+  dekorasi: () => SV.shadow(200, 360, 150) +
+    '<path d="M108 345 L108 190 Q108 66 200 66 Q292 66 292 190 L292 345" fill="none" stroke="#CDB8A5" stroke-width="11" stroke-linecap="round"/>' +
+    '<g fill="#FFE9A8" stroke="#E2C25C" stroke-width="1.5"><circle cx="150" cy="118" r="4"/><circle cx="178" cy="104" r="4"/><circle cx="206" cy="100" r="4"/><circle cx="234" cy="106" r="4"/><circle cx="260" cy="122" r="4"/></g>' +
+    [[112, 318], [112, 262], [112, 206], [128, 150], [158, 104], [200, 84], [242, 104], [272, 150], [288, 206], [288, 262], [288, 318]]
+      .map((p, i) => SV.leaf(p[0] + (i % 2 ? 14 : -14), p[1] + 6, i % 2 ? 40 : -40, 40)).join('') +
+    [[112, 318, 20], [112, 262, 18], [112, 206, 22], [128, 150, 18], [158, 104, 21], [200, 84, 24], [242, 104, 21], [272, 150, 18], [288, 206, 22], [288, 262, 18], [288, 318, 20]]
+      .map((p) => SV.bloom(p[0], p[1], p[2])).join('') +
+    SV.bloom(60, 330, 20) + SV.bloom(340, 330, 20) + SV.leaf(76, 322, 50, 36) + SV.leaf(324, 322, -50, 36),
+
+  undangan: () => SV.shadow(200, 366, 100) +
+    '<rect x="116" y="42" width="168" height="318" rx="28" fill="#FFFFFF" stroke="#4A4A4A" stroke-width="6"/>' +
+    '<rect x="176" y="52" width="48" height="8" rx="4" fill="#4A4A4A"/>' +
+    '<rect x="130" y="72" width="140" height="272" rx="14" fill="var(--c-l)"/>' +
+    '<rect x="144" y="92" width="112" height="206" rx="10" fill="#FFFFFF" stroke="var(--c-ln)" stroke-width="2.5"/>' +
+    '<path d="M200 178 C200 178 168 158 168 140 C168 126 187 122 200 140 C213 122 232 126 232 140 C232 158 200 178 200 178 Z" fill="var(--c)" stroke="var(--c-ln)" stroke-width="2.5" stroke-linejoin="round"/>' +
+    '<text x="200" y="208" text-anchor="middle" font-family="Georgia, serif" font-size="16" font-weight="700" fill="var(--c-ln)">The Wedding</text>' +
+    '<rect x="166" y="222" width="68" height="6" rx="3" fill="var(--c-ln)" opacity="0.55"/><rect x="176" y="238" width="48" height="6" rx="3" fill="var(--c-ln)" opacity="0.4"/><rect x="170" y="254" width="60" height="6" rx="3" fill="var(--c-ln)" opacity="0.4"/>' +
+    SV.leaf(156, 106, -50, 30) + SV.bloom(160, 106, 15) + SV.leaf(244, 106, 50, 30) + SV.bloom(240, 106, 15) +
+    '<rect x="162" y="308" width="76" height="24" rx="12" fill="var(--c-ln)" stroke="var(--c-ln)" stroke-width="2"/>' +
+    '<text x="200" y="325" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#FFFFFF">RSVP</text>',
+
+  seserahan: () => SV.shadow(200, 352, 150) +
+    '<rect x="52" y="268" width="296" height="44" rx="14" fill="#EAD7AA" stroke="#B9975B" stroke-width="3.5"/>' +
+    '<path d="M64 282 H336" stroke="#C9AE70" stroke-width="2.5"/>' +
+    '<rect x="78" y="186" width="84" height="84" rx="7" fill="var(--c)" stroke="var(--c-ln)" stroke-width="3"/>' +
+    '<rect x="112" y="186" width="16" height="84" fill="var(--c-l)"/><rect x="78" y="220" width="84" height="16" fill="var(--c-l)"/>' +
+    SV.bow(120, 178, 0.55, 'var(--c-l)') +
+    '<rect x="172" y="152" width="96" height="118" rx="7" fill="var(--c-l)" stroke="var(--c-ln)" stroke-width="3"/>' +
+    '<rect x="212" y="152" width="16" height="118" fill="var(--c)"/><rect x="172" y="200" width="96" height="16" fill="var(--c)"/>' +
+    SV.leaf(190, 142, -35, 36) + SV.leaf(250, 142, 35, 36) + SV.bow(220, 144, 0.62) +
+    '<rect x="276" y="198" width="68" height="72" rx="7" fill="var(--c-d)" stroke="var(--c-ln)" stroke-width="3"/>' +
+    '<rect x="302" y="198" width="14" height="72" fill="var(--c-l)"/><rect x="276" y="226" width="68" height="14" fill="var(--c-l)"/>' +
+    SV.bloom(310, 190, 17) + SV.leaf(292, 186, -40, 28),
+
+  lainnya: () => SV.shadow(200, 366, 100) +
+    SV.star(200, 194, 96, 42) + SV.star(104, 98, 34, 15, 'var(--c-l)') + SV.star(302, 118, 28, 12, 'var(--c-l)') +
+    SV.star(104, 306, 24, 10, 'var(--c-d)') + SV.star(298, 300, 32, 14, 'var(--c-l)') +
+    '<g fill="var(--c)" stroke="var(--c-ln)" stroke-width="1.5"><circle cx="150" cy="52" r="6"/><circle cx="262" cy="46" r="5"/><circle cx="352" cy="200" r="6"/><circle cx="48" cy="210" r="5"/><circle cx="200" cy="350" r="6"/></g>'
+};
+
+function renderCustomIllustration() {
+  const box = document.getElementById('customVisualPreview');
+  const art = document.getElementById('customIllustration');
+  if (!box || !art) return;
+  const hex = HEX_RE.test(customizerState.color.hex) ? customizerState.color.hex : '#E4007F';
+  box.style.setProperty('--c', hex);
+  box.style.setProperty('--c-l', mixHex(hex, '#FFFFFF', 0.5));
+  box.style.setProperty('--c-d', mixHex(hex, '#000000', 0.22));
+  box.style.setProperty('--c-ln', mixHex(hex, '#000000', 0.5));
+  box.style.setProperty('--c-bg', mixHex(hex, '#FFFFFF', 0.86));
+  const scene = SCENES[customizerState.type.id] || SCENES.lainnya;
+  art.innerHTML = `<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${scene()}</svg>`;
+  art.setAttribute('aria-label', `Ilustrasi ${customizerState.type.name} warna ${customizerState.color.name}`);
+}
+
+// ---------- Kontrol ----------
+function typePriceText(t) {
+  return t.price ? 'Mulai dari ' + formatIDR(t.price) : 'Harga via konsultasi';
+}
+
+function renderCustomTypes() {
+  const wrap = document.getElementById('customBaseOptions');
+  if (!wrap) return;
+  wrap.innerHTML = CUSTOM_TYPES.map(t => `
+    <button type="button" class="option-pill${t.id === customizerState.type.id ? ' active' : ''}" data-type-id="${esc(t.id)}" aria-pressed="${t.id === customizerState.type.id}">
+      <span class="opt-name">${t.emoji} ${esc(t.name)}</span>
+      <span class="opt-price">${esc(typePriceText(t))}</span>
+    </button>
+  `).join('');
+}
+
+function renderCustomColors() {
+  const wrap = document.getElementById('customColorOptions');
+  if (!wrap) return;
+  wrap.innerHTML = CUSTOM_COLORS.map(c => `
+    <button type="button" class="color-circle-btn${c.hex === customizerState.color.hex ? ' active' : ''}" data-hex="${esc(c.hex)}" title="${esc(c.name)}" aria-label="${esc(c.name)}" style="--c1: ${esc(c.hex)}; --c2: ${esc(mixHex(c.hex, '#FFFFFF', 0.35))};">
+      <span></span>
+    </button>
+  `).join('');
+}
+
+function setCustomColor(color, fromPicker) {
+  customizerState.color = color;
+  document.querySelectorAll('#customColorOptions .color-circle-btn').forEach(b => {
+    b.classList.toggle('active', !fromPicker && b.dataset.hex === color.hex);
+  });
+  const picker = document.getElementById('customColorPicker');
+  const hexLabel = document.getElementById('customColorHex');
+  if (picker && picker.value.toLowerCase() !== color.hex.toLowerCase()) picker.value = color.hex.toLowerCase();
+  if (hexLabel) hexLabel.textContent = color.hex.toUpperCase();
+  const label = document.getElementById('selectedColorLabel');
+  if (label) label.innerHTML = `Warna Terpilih: <strong>${esc(color.name)}</strong>`;
+  updateCustomizerSummary();
+}
+
 function setupCustomizer() {
-  // Base Type Selection
-  const baseButtons = document.querySelectorAll('#customBaseOptions .option-pill');
-  const baseImages = {
-    bouquet: '/assets/bouquet.jpg',
-    bloombox: '/assets/bloom_box.jpg',
-    dome: '/assets/dome.jpg',
-    hamper: '/assets/gift.jpg'
-  };
+  renderCustomTypes();
+  renderCustomColors();
 
-  baseButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      baseButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-
-      const val = btn.dataset.value;
-      const name = btn.querySelector('.opt-name').innerText;
-      const price = parseInt(btn.dataset.price, 10);
-
-      customizerState.base = {
-        type: val,
-        name: name,
-        price: price,
-        image: baseImages[val] || '/assets/bouquet.jpg'
-      };
-
+  // Jenis produk
+  const typeWrap = document.getElementById('customBaseOptions');
+  if (typeWrap) {
+    typeWrap.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-type-id]');
+      if (!btn) return;
+      const found = CUSTOM_TYPES.find(t => t.id === btn.dataset.typeId);
+      if (!found) return;
+      customizerState.type = found;
+      typeWrap.querySelectorAll('.option-pill').forEach(b => {
+        const on = b === btn;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', String(on));
+      });
       updateCustomizerSummary();
     });
-  });
+  }
 
-  // Color Palette Selection
-  const colorButtons = document.querySelectorAll('#customColorOptions .color-circle-btn');
-  const colorLabel = document.getElementById('selectedColorLabel');
-  colorButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      colorButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const color = btn.dataset.color;
-      customizerState.color = color;
-      if (colorLabel) {
-        colorLabel.innerHTML = `Warna Terpilih: <strong>${esc(color)}</strong>`;
-      }
-      updateCustomizerSummary();
+  // Palet warna
+  const colorWrap = document.getElementById('customColorOptions');
+  if (colorWrap) {
+    colorWrap.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-hex]');
+      if (!btn) return;
+      const found = CUSTOM_COLORS.find(c => c.hex === btn.dataset.hex);
+      if (found) setCustomColor(found, false);
     });
-  });
+  }
 
-  // Wrapping Paper
-  const wrapButtons = document.querySelectorAll('#customWrapOptions .option-pill');
-  wrapButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      wrapButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      customizerState.wrap = btn.dataset.wrap;
-      updateCustomizerSummary();
+  // Warna pilihan sendiri
+  const picker = document.getElementById('customColorPicker');
+  if (picker) {
+    picker.addEventListener('input', () => {
+      if (!HEX_RE.test(picker.value)) return;
+      setCustomColor({ name: `Warna pilihan sendiri (${picker.value.toUpperCase()})`, hex: picker.value }, true);
     });
-  });
+  }
 
-  // Addons Checkboxes
+  // Add-ons
   const addonCheckboxes = document.querySelectorAll('#customAddonsOptions input[type="checkbox"]');
   addonCheckboxes.forEach(chk => {
     chk.addEventListener('change', () => {
       const selected = [];
       addonCheckboxes.forEach(c => {
         if (c.checked) {
-          selected.push({
-            id: c.value,
-            name: c.dataset.name,
-            price: parseInt(c.dataset.price, 10)
-          });
+          selected.push({ id: c.value, name: c.dataset.name, price: parseInt(c.dataset.price, 10) });
         }
       });
       customizerState.addons = selected;
@@ -454,91 +663,82 @@ function setupCustomizer() {
     });
   });
 
-  // Recipient and Message Input
+  // Nama penerima dan ucapan
   const recipientInput = document.getElementById('customRecipientName');
   const messageInput = document.getElementById('customCardMsg');
-
   if (recipientInput) {
     recipientInput.addEventListener('input', (e) => {
       customizerState.recipient = e.target.value.trim();
       updateCustomizerSummary();
     });
   }
-
   if (messageInput) {
     messageInput.addEventListener('input', (e) => {
       customizerState.cardMessage = e.target.value.trim();
     });
   }
 
-  // WA Order Button
+  // Tombol WhatsApp: pesan & konsultasi
   const btnOrderCustom = document.getElementById('btnOrderCustomWA');
-  if (btnOrderCustom) {
-    btnOrderCustom.addEventListener('click', () => {
-      sendCustomOrderToWhatsApp();
-    });
-  }
+  if (btnOrderCustom) btnOrderCustom.addEventListener('click', () => sendCustomOrderToWhatsApp(false));
+  const btnConsult = document.getElementById('btnConsultCustomWA');
+  if (btnConsult) btnConsult.addEventListener('click', () => sendCustomOrderToWhatsApp(true));
 
-  updateCustomizerSummary();
+  setCustomColor(customizerState.color, false);
+}
+
+function customizerTotal() {
+  if (!customizerState.type.price) return null; // harga ditentukan lewat konsultasi
+  return customizerState.addons.reduce((sum, a) => sum + a.price, customizerState.type.price);
 }
 
 function updateCustomizerSummary() {
-  const previewImg = document.getElementById('customPreviewImg');
   const baseNameEl = document.getElementById('previewBaseName');
   const colorEl = document.getElementById('previewColor');
-  const wrapEl = document.getElementById('previewWrap');
+  const chipEl = document.getElementById('previewColorChip');
   const addonsEl = document.getElementById('previewAddons');
   const recipientEl = document.getElementById('previewRecipient');
   const priceEl = document.getElementById('customTotalPrice');
 
-  if (previewImg) previewImg.src = customizerState.base.image;
-  if (baseNameEl) baseNameEl.innerText = customizerState.base.name;
-  if (colorEl) colorEl.innerText = customizerState.color;
-  if (wrapEl) wrapEl.innerText = customizerState.wrap;
-
+  renderCustomIllustration();
+  if (baseNameEl) baseNameEl.textContent = `${customizerState.type.emoji} ${customizerState.type.name}`;
+  if (colorEl) colorEl.textContent = customizerState.color.name;
+  if (chipEl && HEX_RE.test(customizerState.color.hex)) chipEl.style.background = customizerState.color.hex;
   if (addonsEl) {
-    if (customizerState.addons.length === 0) {
-      addonsEl.innerText = 'Tidak ada';
-    } else {
-      addonsEl.innerText = customizerState.addons.map(a => a.name).join(', ');
-    }
+    addonsEl.textContent = customizerState.addons.length === 0
+      ? 'Tidak ada'
+      : customizerState.addons.map(a => a.name).join(', ');
   }
+  if (recipientEl) recipientEl.textContent = customizerState.recipient || '-';
 
-  if (recipientEl) {
-    recipientEl.innerText = customizerState.recipient || '-';
-  }
-
-  // Calculate Total
-  let total = customizerState.base.price;
-  customizerState.addons.forEach(a => { total += a.price; });
-
-  if (priceEl) {
-    priceEl.innerText = formatIDR(total);
-  }
+  const total = customizerTotal();
+  if (priceEl) priceEl.textContent = total === null ? 'Via konsultasi' : formatIDR(total);
 }
 
-function sendCustomOrderToWhatsApp() {
-  let total = customizerState.base.price;
-  customizerState.addons.forEach(a => { total += a.price; });
-
+function sendCustomOrderToWhatsApp(consultOnly) {
+  const total = customizerTotal();
   const addonsText = customizerState.addons.length > 0
     ? customizerState.addons.map(a => `- ${a.name} (${formatIDR(a.price)})`).join('\n')
     : '- Tidak ada';
-
   const recipient = customizerState.recipient || '(Belum diisi)';
   const message = customizerState.cardMessage || '(Kosong / Ditulis tangan sendiri)';
+  const priceLine = total === null ? 'Harga menyesuaikan, mohon info setelah konsultasi' : formatIDR(total);
 
-  const text = `🌸 *PESANAN BESPOKE CUSTOM — DY.FLORIST* 🌸\n` +
-               `---------------------------------------------\n` +
-               `*Tipe Rangkaian:* ${customizerState.base.name}\n` +
-               `*Nuansa Warna:* ${customizerState.color}\n` +
-               `*Wrapping & Pita:* ${customizerState.wrap}\n` +
-               `*Add-ons Spesial:*\n${addonsText}\n\n` +
-               `*Penerima:* ${recipient}\n` +
-               `*Ucapan Kartu:*\n"${message}"\n` +
-               `---------------------------------------------\n` +
-               `*Estimasi Total:* ${formatIDR(total)}\n\n` +
-               `Halo Florist dy.florist, saya ingin memesan rangkaian custom di atas. Mohon konfirmasi ketersediaan dan detail pengirimannya. Terima kasih! ✨`;
+  const detail = `*Jenis:* ${customizerState.type.name}\n` +
+                 `*Warna:* ${customizerState.color.name}\n` +
+                 `*Tambahan Spesial:*\n${addonsText}\n\n` +
+                 `*Penerima:* ${recipient}\n` +
+                 `*Ucapan Kartu:*\n"${message}"\n` +
+                 `---------------------------------------------\n` +
+                 `*Estimasi:* ${priceLine}\n\n`;
+
+  const text = consultOnly
+    ? `💬 *KONSULTASI CUSTOM — DY.FLORIST* 💬\n---------------------------------------------\n` +
+      detail +
+      `Halo dy.florist, saya sudah mencoba Bespoke Studio tetapi ingin berkonsultasi dulu soal ide, warna, atau budget. Mohon bantuannya. Terima kasih! ✨`
+    : `🌸 *PESANAN BESPOKE CUSTOM — DY.FLORIST* 🌸\n---------------------------------------------\n` +
+      detail +
+      `Halo Florist dy.florist, saya ingin memesan pesanan custom di atas. Mohon konfirmasi ketersediaan dan detail pengirimannya. Terima kasih! ✨`;
 
   const waUrl = `https://wa.me/${WA_PHONE_NUMBER}?text=${encodeURIComponent(text)}`;
   window.open(waUrl, '_blank', 'noopener,noreferrer');
