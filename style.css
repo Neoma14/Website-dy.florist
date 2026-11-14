@@ -2651,3 +2651,17 @@ button {
   font-size: 0.95rem;
   line-height: 1.6;
 }
+
+.custom-addon-fields {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.custom-addon-fields[hidden] {
+  display: none;
+}
+
+.custom-addon-fields small {
+  color: var(--color-text-muted);
+}

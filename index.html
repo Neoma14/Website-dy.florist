@@ -277,20 +277,25 @@
                 <label class="step-title">3. Tambahan Spesial (Opsional)</label>
                 <div class="checkbox-addons-grid" id="customAddonsOptions">
                   <label class="addon-checkbox-label">
-                    <input type="checkbox" value="fairy_lights" data-price="25000" data-name="Fairy Lights Warm LED">
+                    <input type="checkbox" value="chocolate" data-price="25000" data-name="Cokelat">
                     <span class="custom-chk"></span>
-                    <span class="addon-txt">Lampu LED Fairy Lights (+Rp 25k)</span>
+                    <span class="addon-txt">Cokelat (estimasi +Rp 25k)</span>
                   </label>
                   <label class="addon-checkbox-label">
-                    <input type="checkbox" value="ferrero" data-price="45000" data-name="Ferrero Rocher (5 pcs)">
+                    <input type="checkbox" value="scented_candle" data-price="100000" data-name="Lilin Aromaterapi">
                     <span class="custom-chk"></span>
-                    <span class="addon-txt">Cokelat Ferrero Rocher (+Rp 45k)</span>
+                    <span class="addon-txt">Lilin Aromaterapi (estimasi +Rp 100k)</span>
                   </label>
                   <label class="addon-checkbox-label">
-                    <input type="checkbox" value="scented_candle" data-price="60000" data-name="Artisan Scented Candle">
+                    <input type="checkbox" value="custom" id="customAddonToggle">
                     <span class="custom-chk"></span>
-                    <span class="addon-txt">Lilin Aromaterapi Premium (+Rp 60k)</span>
+                    <span class="addon-txt">Custom (isi sendiri estimasi harga)</span>
                   </label>
+                </div>
+                <div class="custom-addon-fields" id="customAddonFields" hidden>
+                  <input type="text" id="customAddonName" class="input-field" maxlength="60" placeholder="Nama tambahan (misal: boneka, balon)">
+                  <input type="number" id="customAddonPrice" class="input-field" min="0" max="10000000" step="1000" inputmode="numeric" placeholder="Estimasi harga (Rp), misal 50000">
+                  <small>Harga final dikonfirmasi oleh tim kami.</small>
                 </div>
               </div>
 

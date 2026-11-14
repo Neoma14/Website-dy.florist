@@ -825,20 +825,31 @@ function setupCustomizer() {
     });
   }
 
-  // Add-ons
+  // Add-ons (cokelat, lilin, dan satu tambahan custom dengan estimasi harga dari pelanggan)
   const addonCheckboxes = document.querySelectorAll('#customAddonsOptions input[type="checkbox"]');
-  addonCheckboxes.forEach(chk => {
-    chk.addEventListener('change', () => {
-      const selected = [];
-      addonCheckboxes.forEach(c => {
-        if (c.checked) {
-          selected.push({ id: c.value, name: c.dataset.name, price: parseInt(c.dataset.price, 10) });
-        }
-      });
-      customizerState.addons = selected;
-      updateCustomizerSummary();
+  const customFields = document.getElementById('customAddonFields');
+  const customName = document.getElementById('customAddonName');
+  const customPrice = document.getElementById('customAddonPrice');
+  const collectAddons = () => {
+    const selected = [];
+    addonCheckboxes.forEach(c => {
+      if (!c.checked) return;
+      if (c.value === 'custom') {
+        const price = Math.min(10000000, Math.max(0, parseInt(customPrice.value, 10) || 0));
+        const label = (customName.value || '').trim().slice(0, 60);
+        selected.push({ id: 'custom', name: label ? `Custom: ${label}` : 'Custom', price });
+      } else {
+        selected.push({ id: c.value, name: c.dataset.name, price: parseInt(c.dataset.price, 10) });
+      }
     });
-  });
+    customizerState.addons = selected;
+    updateCustomizerSummary();
+  };
+  addonCheckboxes.forEach(chk => chk.addEventListener('change', () => {
+    if (chk.value === 'custom' && customFields) customFields.hidden = !chk.checked;
+    collectAddons();
+  }));
+  [customName, customPrice].forEach(el => el && el.addEventListener('input', collectAddons));
 
   // Nama penerima dan ucapan
   const recipientInput = document.getElementById('customRecipientName');
@@ -895,7 +906,7 @@ function updateCustomizerSummary() {
 function sendCustomOrderToWhatsApp(consultOnly) {
   const total = customizerTotal();
   const addonsText = customizerState.addons.length > 0
-    ? customizerState.addons.map(a => `- ${a.name} (${formatIDR(a.price)})`).join('\n')
+    ? customizerState.addons.map(a => `- ${a.name} (estimasi ${formatIDR(a.price)})`).join('\n')
     : '- Tidak ada';
   const recipient = customizerState.recipient || '(Belum diisi)';
   const message = customizerState.cardMessage || '(Kosong / Ditulis tangan sendiri)';
