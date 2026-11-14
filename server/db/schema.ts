@@ -62,6 +62,22 @@ export const loginAttempts = mysqlTable('login_attempts', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => [index('login_attempts_ip_idx').on(t.ipHash, t.createdAt)]);
 
+// Status penguncian login per IP: level 1 = dikunci sementara, level 2 = diblokir sampai pemulihan via email
+export const loginBlocks = mysqlTable('login_blocks', {
+  ipHash: varchar('ip_hash', { length: 64 }).primaryKey(),
+  level: int('level').notNull(),
+  lockedUntil: datetime('locked_until'),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// Token pemulihan (hanya hash yang disimpan), sekali pakai, berlaku 24 jam
+export const recoveryTokens = mysqlTable('recovery_tokens', {
+  tokenHash: varchar('token_hash', { length: 64 }).primaryKey(),
+  expiresAt: datetime('expires_at').notNull(),
+  usedAt: datetime('used_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
 export const rateEvents = mysqlTable('rate_events', {
   id: int('id').autoincrement().primaryKey(),
   bucket: varchar('bucket', { length: 40 }).notNull(),

@@ -3073,3 +3073,32 @@ body.cmb-on .floating-whatsapp {
   font-family: inherit;
   font-size: 0.9rem;
 }
+
+/* Pesan kunci / blokir di form login admin */
+.admin-login-alert {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: var(--radius-xs);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  text-align: left;
+  border: 1px solid transparent;
+}
+
+.admin-login-alert[hidden] { display: none; }
+.admin-login-alert.is-error { background: #FFF4F4; border-color: #F3C2C2; color: #A12626; }
+.admin-login-alert.is-locked { background: #FFF8E8; border-color: #F0D9A0; color: #8A5A00; }
+.admin-login-alert.is-blocked { background: #FDECEC; border-color: #E59A9A; color: #8E1B1B; font-weight: 600; }
+.admin-login-alert.is-ok { background: #EEF8F0; border-color: #B7DFC0; color: #23692F; }
+
+.admin-recover-box {
+  margin-bottom: 16px;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft);
+  font-size: 0.88rem;
+  text-align: left;
+}
+
+.admin-recover-box[hidden] { display: none; }
+.admin-recover-box p { margin: 0 0 10px; }

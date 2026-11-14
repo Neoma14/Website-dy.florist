@@ -673,6 +673,11 @@
           <div class="admin-login-icon">🔐</div>
           <h3>Masuk Dashboard Admin</h3>
           <p class="admin-login-desc">Masukkan password admin untuk mengelola katalog produk, harga, dan melihat pesanan.</p>
+          <div class="admin-login-alert" id="adminLoginAlert" role="alert" hidden></div>
+          <div class="admin-recover-box" id="adminRecoverBox" hidden>
+            <p>Anda membuka link pemulihan dari email dy.florist. Klik tombol di bawah untuk membuka blokir login admin.</p>
+            <button type="button" class="btn btn-primary btn-block" id="btnAdminRecover" data-click="handleAdminRecover()">Buka Blokir Login</button>
+          </div>
           <form id="adminLoginForm" data-submit="handleAdminLogin()">
             <div class="form-group">
               <label for="adminPasswordInput">Password Admin:</label>

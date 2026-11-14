@@ -158,7 +158,7 @@ const ALLOWED_ACTIONS = new Set([
   'changeCartQty', 'openQuickView', 'openAdminModal', 'handleAdminLogout', 'clearOrdersLog', 'cancelEditProduct',
   'addToCart', 'closeQuickView', 'closeCart', 'goCatalog', 'handleProductImageUpload', 'filterAdminProducts',
   'saveAdminProduct', 'handleAdminLogin', 'selectCategory', 'saveAdminCategory', 'startEditCategory',
-  'cancelEditCategory', 'deleteCategory', 'updateDiscountHint', 'saveBespokePrices'
+  'cancelEditCategory', 'deleteCategory', 'updateDiscountHint', 'saveBespokePrices', 'handleAdminRecover'
 ]);
 
 function runActions(spec, el) {
@@ -1434,6 +1434,7 @@ function setupAdmin() {
   // Admin tidak punya tombol di halaman publik: dibuka lewat alamat khusus /admin
   if (location.pathname.replace(/\/+$/, '') === '/admin') {
     openAdminModal();
+    setupRecoveryLink();
   }
   const openBtn = document.getElementById('openAdminBtn');
   const closeBtn = document.getElementById('closeAdminBtn');
@@ -1529,6 +1530,44 @@ async function showAdminDashboard() {
   updateAdminBadges();
 }
 
+// Pesan status di form login (kunci 15 menit / blokir)
+function setLoginAlert(message, kind) {
+  const box = document.getElementById('adminLoginAlert');
+  if (!box) return;
+  box.hidden = !message;
+  box.textContent = message || '';
+  box.className = 'admin-login-alert' + (kind ? ' is-' + kind : '');
+}
+
+// Link pemulihan dari email: /admin?pemulihan=<token>
+let recoveryToken = '';
+function setupRecoveryLink() {
+  const params = new URLSearchParams(location.search);
+  const token = params.get('pemulihan') || '';
+  if (!/^[a-f0-9]{64}$/.test(token)) return;
+  recoveryToken = token;
+  // hapus token dari alamat & riwayat browser
+  history.replaceState(null, '', '/admin');
+  const box = document.getElementById('adminRecoverBox');
+  if (box) box.hidden = false;
+}
+
+window.handleAdminRecover = async function() {
+  const btn = document.getElementById('btnAdminRecover');
+  if (btn) btn.disabled = true;
+  try {
+    await api('/admin/recover', { method: 'POST', json: { token: recoveryToken } });
+    recoveryToken = '';
+    document.getElementById('adminRecoverBox').hidden = true;
+    setLoginAlert('Blokir sudah dibuka. Silakan login dengan password admin.', 'ok');
+    document.getElementById('adminPasswordInput')?.focus();
+  } catch (e) {
+    setLoginAlert(e.message || 'Link pemulihan tidak valid.', 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+};
+
 window.handleAdminLogin = async function() {
   const pwInput = document.getElementById('adminPasswordInput');
   const password = pwInput?.value ?? '';
@@ -1538,12 +1577,14 @@ window.handleAdminLogin = async function() {
   if (submitBtn) submitBtn.disabled = true;
   try {
     await api('/admin/login', { method: 'POST', json: { password } });
+    setLoginAlert('');
     isAdminLoggedIn = true;
     if (pwInput) pwInput.value = '';
     showToast('Berhasil masuk sebagai Admin! 🌸');
     await showAdminDashboard();
   } catch (e) {
-    showToast(e.message || 'Login gagal.');
+    const kind = e.status === 403 ? 'blocked' : e.status === 429 ? 'locked' : 'error';
+    setLoginAlert(e.message || 'Login gagal.', kind);
     if (pwInput) {
       pwInput.value = '';
       pwInput.focus();

@@ -1,3 +1,4 @@
+import { sendBlockedAlert } from './lib/mailer';
 import { Elysia, t } from 'elysia';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -7,7 +8,7 @@ import { getDb, schema } from './db';
 import { describeHash, verifyPassword } from './lib/password';
 import {
   SESSION_COOKIE, SESSION_TTL_MS, clearFailedLogins, clientIp, createSession, destroySession,
-  detectImageType, hashIp, isValidSession, loginBlockedSeconds, rateLimited, recordFailedLogin,
+  detectImageType, hashIp, isValidSession, loginGate, rateLimited, registerFailedLogin, createRecoveryToken, useRecoveryToken,
 } from './lib/security';
 
 
@@ -148,6 +149,8 @@ const toPublic = (p: typeof schema.products.$inferSelect) => ({
   badge: p.badge, description: p.description, image: p.image, rating: p.rating / 10, reviews: p.reviews,
 });
 
+const BLOCKED_MSG = 'Login dari perangkat ini diblokir karena password salah berulang kali. Link pemulihan sudah dikirim ke email dy.florist.';
+
 const denied = (status: number, error: string) =>
   new Response(JSON.stringify({ error }), {
     status,
@@ -160,7 +163,7 @@ export const app = new Elysia({ prefix: '/api' })
     const path = new URL(request.url).pathname;
     if (!path.startsWith('/api/admin')) return;
     if (!csrfOk(request)) return denied(403, 'Permintaan ditolak');
-    if (path === '/api/admin/login') return;
+    if (path === '/api/admin/login' || path === '/api/admin/recover') return;
     if (!(await isValidSession(getCookie(request, SESSION_COOKIE)))) return denied(401, 'Belum login');
   })
   .onAfterHandle({ as: 'global' }, ({ set }) => {
@@ -271,12 +274,17 @@ export const app = new Elysia({ prefix: '/api' })
 
   // ---------- Login admin ----------
   .post('/admin/login', async ({ body, request, set }) => {
-    const ipHash = hashIp(clientIp(request));
-    const blocked = await loginBlockedSeconds(ipHash);
-    if (blocked > 0) {
+    const ip = clientIp(request);
+    const ipHash = hashIp(ip);
+    const gate = await loginGate(ipHash);
+    if (gate.state === 'blocked') {
+      set.status = 403;
+      return { error: BLOCKED_MSG, blocked: true };
+    }
+    if (gate.state === 'locked') {
       set.status = 429;
-      set.headers['retry-after'] = String(blocked);
-      return { error: `Terlalu banyak percobaan. Coba lagi dalam ${Math.ceil(blocked / 60)} menit.` };
+      set.headers['retry-after'] = String(gate.retryAfter);
+      return { error: `Login dikunci. Coba lagi dalam ${Math.ceil(gate.retryAfter / 60)} menit.` };
     }
     const stored = process.env.ADMIN_PASSWORD_HASH ?? '';
     const ok = stored ? await verifyPassword(body.password, stored) : false;
@@ -284,15 +292,43 @@ export const app = new Elysia({ prefix: '/api' })
       if (describeHash(stored) !== 'format benar') {
         console.error('Login admin gagal: ADMIN_PASSWORD_HASH ' + describeHash(stored));
       }
-      await recordFailedLogin(ipHash);
+      const fail = await registerFailedLogin(ipHash);
+      if (fail.state === 'blocked') {
+        // Kirim email pemulihan (maks 3 email / jam agar kotak masuk tidak dibanjiri)
+        if (!(await rateLimited('recovery_email', 'global', 3, 60 * 60 * 1000))) {
+          const token = await createRecoveryToken();
+          await sendBlockedAlert({ token, ip, userAgent: request.headers.get('user-agent') ?? '-' });
+        }
+        set.status = 403;
+        return { error: BLOCKED_MSG, blocked: true };
+      }
+      if (fail.state === 'locked') {
+        set.status = 429;
+        set.headers['retry-after'] = String(fail.retryAfter);
+        return { error: '3x password salah. Login dikunci 15 menit.' };
+      }
       set.status = 401;
-      return { error: 'Password salah' };
+      return { error: `Password salah. Sisa ${fail.remaining} percobaan sebelum dikunci 15 menit.` };
     }
     await clearFailedLogins(ipHash);
     const { token, expires } = await createSession();
     set.headers['set-cookie'] = sessionCookie(token, expires);
     return { ok: true };
   }, { body: t.Object({ password: text(1, 200) }) })
+
+  // ---------- Pemulihan blokir login (token dari email) ----------
+  .post('/admin/recover', async ({ body, request, set }) => {
+    const ipHash = hashIp(clientIp(request));
+    if (await rateLimited('recover', ipHash, 10, 15 * 60 * 1000)) {
+      set.status = 429;
+      return { error: 'Terlalu banyak percobaan. Coba lagi nanti.' };
+    }
+    if (!(await useRecoveryToken(body.token))) {
+      set.status = 400;
+      return { error: 'Link pemulihan tidak valid, sudah dipakai, atau kedaluwarsa.' };
+    }
+    return { ok: true };
+  }, { body: t.Object({ token: text(1, 100) }) })
 
   // ---------- Area admin (wajib login + CSRF) ----------
   .group('/admin', (admin) => admin

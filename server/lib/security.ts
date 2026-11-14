@@ -41,38 +41,92 @@ export async function destroySession(token: string | undefined) {
   await getDb().delete(schema.sessions).where(eq(schema.sessions.tokenHash, sha256(token)));
 }
 
-// --- Pemblokiran login: 5 gagal / 15 menit per IP, 100 gagal / 15 menit global ---
-const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-const LOGIN_MAX_PER_IP = 5;
-// Batas global dinaikkan dari 30 ke 100 agar orang iseng tidak mudah mengunci admin sungguhan;
-// menebak password tetap sangat lambat (maks 100 percobaan / 15 menit untuk seluruh dunia).
+// --- Pemblokiran login (per IP) ---
+// 1) 3x password salah dalam 15 menit  -> dikunci 15 menit (level 1)
+// 2) setelah kunci habis, salah lagi  -> diblokir (level 2) sampai dibuka lewat link pemulihan di email
+// Batas global 100 gagal / 15 menit tetap berlaku untuk serangan dari banyak IP.
+export const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+export const LOGIN_MAX_PER_IP = 3;
+export const LOCK_MS = 15 * 60 * 1000;
 const LOGIN_MAX_GLOBAL = 100;
+const LEVEL1_FORGET_MS = 24 * 60 * 60 * 1000; // riwayat kunci dilupakan 24 jam setelah kunci berakhir
 
-export async function loginBlockedSeconds(ipHash: string): Promise<number> {
+export type LoginGate = { state: 'ok' } | { state: 'locked'; retryAfter: number } | { state: 'blocked' };
+
+export async function loginGate(ipHash: string): Promise<LoginGate> {
   const db = getDb();
+  const [row] = await db.select().from(schema.loginBlocks).where(eq(schema.loginBlocks.ipHash, ipHash)).limit(1);
+  if (row?.level === 2) return { state: 'blocked' };
+  if (row?.level === 1 && row.lockedUntil) {
+    const until = new Date(row.lockedUntil).getTime();
+    if (until > Date.now()) return { state: 'locked', retryAfter: Math.max(1, Math.ceil((until - Date.now()) / 1000)) };
+    if (until < Date.now() - LEVEL1_FORGET_MS) await db.delete(schema.loginBlocks).where(eq(schema.loginBlocks.ipHash, ipHash));
+  }
   const since = new Date(Date.now() - LOGIN_WINDOW_MS);
-  const [perIp] = await db.select({ n: sql<number>`count(*)`, first: sql<Date>`min(created_at)` })
-    .from(schema.loginAttempts)
-    .where(and(eq(schema.loginAttempts.ipHash, ipHash), gt(schema.loginAttempts.createdAt, since)));
   const [global] = await db.select({ n: sql<number>`count(*)`, first: sql<Date>`min(created_at)` })
     .from(schema.loginAttempts).where(gt(schema.loginAttempts.createdAt, since));
-  const ipBlocked = Number(perIp.n) >= LOGIN_MAX_PER_IP;
-  const globalBlocked = Number(global.n) >= LOGIN_MAX_GLOBAL;
-  if (!ipBlocked && !globalBlocked) return 0;
-  const first = ipBlocked ? perIp.first : global.first;
-  const until = new Date(first).getTime() + LOGIN_WINDOW_MS;
-  return Math.max(1, Math.ceil((until - Date.now()) / 1000));
+  if (Number(global.n) >= LOGIN_MAX_GLOBAL) {
+    const until = new Date(global.first).getTime() + LOGIN_WINDOW_MS;
+    return { state: 'locked', retryAfter: Math.max(1, Math.ceil((until - Date.now()) / 1000)) };
+  }
+  return { state: 'ok' };
 }
 
-export async function recordFailedLogin(ipHash: string) {
+export type FailResult = { state: 'wrong'; remaining: number } | { state: 'locked'; retryAfter: number } | { state: 'blocked' };
+
+export async function registerFailedLogin(ipHash: string): Promise<FailResult> {
   const db = getDb();
   await db.insert(schema.loginAttempts).values({ ipHash });
   await db.delete(schema.loginAttempts)
     .where(lt(schema.loginAttempts.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000)));
+
+  const [row] = await db.select().from(schema.loginBlocks).where(eq(schema.loginBlocks.ipHash, ipHash)).limit(1);
+  if (row?.level === 1) {
+    // Sudah pernah dikunci dan masih salah -> blokir
+    await db.update(schema.loginBlocks).set({ level: 2, lockedUntil: null, updatedAt: new Date() })
+      .where(eq(schema.loginBlocks.ipHash, ipHash));
+    return { state: 'blocked' };
+  }
+  const since = new Date(Date.now() - LOGIN_WINDOW_MS);
+  const [perIp] = await db.select({ n: sql<number>`count(*)` }).from(schema.loginAttempts)
+    .where(and(eq(schema.loginAttempts.ipHash, ipHash), gt(schema.loginAttempts.createdAt, since)));
+  const n = Number(perIp.n);
+  if (n >= LOGIN_MAX_PER_IP) {
+    const lockedUntil = new Date(Date.now() + LOCK_MS);
+    await db.insert(schema.loginBlocks).values({ ipHash, level: 1, lockedUntil })
+      .onDuplicateKeyUpdate({ set: { level: 1, lockedUntil, updatedAt: new Date() } });
+    return { state: 'locked', retryAfter: Math.ceil(LOCK_MS / 1000) };
+  }
+  return { state: 'wrong', remaining: LOGIN_MAX_PER_IP - n };
 }
 
 export async function clearFailedLogins(ipHash: string) {
-  await getDb().delete(schema.loginAttempts).where(eq(schema.loginAttempts.ipHash, ipHash));
+  const db = getDb();
+  await db.delete(schema.loginAttempts).where(eq(schema.loginAttempts.ipHash, ipHash));
+  await db.delete(schema.loginBlocks).where(eq(schema.loginBlocks.ipHash, ipHash));
+}
+
+// --- Pemulihan: token sekali pakai, berlaku 24 jam; membuka semua blokir login ---
+export const RECOVERY_TTL_MS = 24 * 60 * 60 * 1000;
+
+export async function createRecoveryToken(): Promise<string> {
+  const token = randomBytes(32).toString('hex');
+  const db = getDb();
+  await db.insert(schema.recoveryTokens).values({ tokenHash: sha256(token), expiresAt: new Date(Date.now() + RECOVERY_TTL_MS) });
+  await db.delete(schema.recoveryTokens).where(lt(schema.recoveryTokens.expiresAt, new Date(Date.now() - RECOVERY_TTL_MS)));
+  return token;
+}
+
+export async function useRecoveryToken(token: string): Promise<boolean> {
+  if (!/^[a-f0-9]{64}$/.test(token)) return false;
+  const db = getDb();
+  const hash = sha256(token);
+  const [row] = await db.select().from(schema.recoveryTokens).where(eq(schema.recoveryTokens.tokenHash, hash)).limit(1);
+  if (!row || row.usedAt || new Date(row.expiresAt).getTime() < Date.now()) return false;
+  await db.update(schema.recoveryTokens).set({ usedAt: new Date() }).where(eq(schema.recoveryTokens.tokenHash, hash));
+  await db.delete(schema.loginBlocks);
+  await db.delete(schema.loginAttempts);
+  return true;
 }
 
 // --- Rate limit umum (mis. pesanan publik) ---

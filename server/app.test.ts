@@ -39,6 +39,7 @@ before(async () => {
   const db = getDb();
   await db.delete(schema.sessions);
   await db.delete(schema.loginAttempts);
+  await db.delete(schema.loginBlocks);
   await db.delete(schema.rateEvents);
 });
 
@@ -113,19 +114,45 @@ test('login berhasil: cookie HttpOnly + SameSite=Strict, sesi valid, logout menc
   assert.equal((await call('/api/admin/session', { cookie })).status, 401);
 });
 
-test('pemblokiran: 5x salah memblokir IP itu, bahkan dengan password benar', async () => {
+test('pemblokiran: 3x salah -> kunci 15 menit, salah lagi setelahnya -> blokir + pemulihan', async () => {
   const ip = newIp();
-  for (let i = 0; i < 5; i++) {
-    const r = await call('/api/admin/login', { method: 'POST', ip, ...json({ password: 'salah' + i }) });
-    assert.equal(r.status, 401);
-  }
-  const blocked = await call('/api/admin/login', { method: 'POST', ip, ...json({ password: PASSWORD }) });
-  assert.equal(blocked.status, 429);
-  assert.ok(Number(blocked.headers.get('retry-after')) > 0);
-  // IP lain tidak terblokir
-  const other = await call('/api/admin/login', { method: 'POST', ip: newIp(), ...json({ password: PASSWORD }) });
-  assert.equal(other.status, 200);
+  const login = (password: string) => call('/api/admin/login', { method: 'POST', ip, ...json({ password }) });
+  const r1 = await login('salah1');
+  assert.equal(r1.status, 401);
+  assert.match((await r1.json() as any).error, /Sisa 2/);
+  assert.equal((await login('salah2')).status, 401);
+  const r3 = await login('salah3');
+  assert.equal(r3.status, 429);
+  assert.equal(Number(r3.headers.get('retry-after')), 900);
+  // selama dikunci, password benar pun ditolak
+  assert.equal((await login(PASSWORD)).status, 429);
+  // IP lain tidak terpengaruh
+  assert.equal((await call('/api/admin/login', { method: 'POST', ip: newIp(), ...json({ password: PASSWORD }) })).status, 200);
+
+  // kunci 15 menit berakhir (disimulasikan)
+  await getDb().update(schema.loginBlocks).set({ lockedUntil: new Date(Date.now() - 1000) });
+  const r4 = await login('salah4');
+  assert.equal(r4.status, 403);
+  assert.equal((await r4.json() as any).blocked, true);
+  // diblokir: password benar tetap ditolak, tanpa batas waktu
+  assert.equal((await login(PASSWORD)).status, 403);
+
+  // pemulihan: token salah / format aneh ditolak, token benar membuka blokir & hanya sekali pakai
+  const recover = (token: string) => call('/api/admin/recover', { method: 'POST', ...json({ token }) });
+  assert.equal((await recover('a'.repeat(64))).status, 400);
+  assert.equal((await recover('<script>')).status, 400);
+  const { createRecoveryToken } = await import('./lib/security');
+  const token = await createRecoveryToken();
+  assert.equal((await recover(token)).status, 200);
+  assert.equal((await recover(token)).status, 400);
+  assert.equal((await login(PASSWORD)).status, 200);
   await getDb().delete(schema.loginAttempts);
+  await getDb().delete(schema.loginBlocks);
+});
+
+test('pemulihan tanpa header CSRF ditolak', async () => {
+  const res = await call('/api/admin/recover', { method: 'POST', admin: false, ...json({ token: 'a'.repeat(64) }) });
+  assert.equal(res.status, 403);
 });
 
 test('request admin yang mengubah data tanpa CSRF header ditolak walau sudah login', async () => {
