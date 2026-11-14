@@ -14,6 +14,25 @@ function esc(value) {
 
 // Hanya gambar dari aset situs, upload lokal (dev), atau Vercel Blob yang boleh tampil
 const SAFE_IMAGE = /^(\/assets\/[\w.-]+|\/api\/uploads\/[a-f0-9]{32}\.(jpg|png|webp)|https:\/\/[a-z0-9]+\.public\.blob\.vercel-storage\.com\/products\/[\w.-]+)$/;
+// Diskon: hanya jika harga coret lebih tinggi dari harga jual
+function discountOf(item) {
+  const was = Number(item.originalPrice) || 0;
+  if (!was || was <= item.price) return null;
+  const pct = Math.round((was - item.price) / was * 100);
+  return pct >= 1 ? { was, pct, save: was - item.price } : null;
+}
+
+// Blok harga: harga jual, harga coret, dan label hemat
+function priceHtml(item, size = 'card') {
+  const d = discountOf(item);
+  if (!d) return `<span class="${size === 'modal' ? 'modal-price' : 'product-price'}">${formatIDR(item.price)}</span>`;
+  return `<div class="price-stack price-stack--${size}">
+    <span class="price-now">${formatIDR(item.price)}</span>
+    <span class="price-was-row"><s class="price-was">${formatIDR(d.was)}</s><span class="price-off">-${d.pct}%</span></span>
+    ${size === 'modal' ? `<span class="price-save">Anda hemat ${formatIDR(d.save)}</span>` : ''}
+  </div>`;
+}
+
 function safeImg(url) {
   return SAFE_IMAGE.test(String(url)) ? url : '/assets/bouquet.jpg';
 }
@@ -139,7 +158,7 @@ const ALLOWED_ACTIONS = new Set([
   'changeCartQty', 'openQuickView', 'openAdminModal', 'handleAdminLogout', 'clearOrdersLog', 'cancelEditProduct',
   'addToCart', 'closeQuickView', 'closeCart', 'goCatalog', 'handleProductImageUpload', 'filterAdminProducts',
   'saveAdminProduct', 'handleAdminLogin', 'selectCategory', 'saveAdminCategory', 'startEditCategory',
-  'cancelEditCategory', 'deleteCategory'
+  'cancelEditCategory', 'deleteCategory', 'updateDiscountHint', 'saveBespokePrices'
 ]);
 
 function runActions(spec, el) {
@@ -214,6 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   setupSearch();
   setupCustomizer();
+  loadBespokePrices();
   setupDeliveryForm();
   setupFloatingWhatsApp();
   setupCustomizerMobileBar();
@@ -305,6 +325,7 @@ function renderCatalog() {
       ${item.badge ? `<span class="product-badge-tag">${esc(item.badge)}</span>` : ''}
       <div class="product-img-wrap">
         <img src="${esc(safeImg(item.image))}" alt="${esc(item.name)}" loading="lazy">
+        ${discountOf(item) ? `<span class="product-discount-tag">Hemat ${discountOf(item).pct}%</span>` : ''}
         <button class="product-quick-view-btn" data-click="openQuickView('${esc(item.id)}')">
           Detail Produk 👁️
         </button>
@@ -313,7 +334,7 @@ function renderCatalog() {
         <div class="product-category-meta">${esc(item.categoryName)}</div>
         <h3 class="product-title">${esc(item.name)}</h3>
         <div class="product-price-row">
-          <span class="product-price">${formatIDR(item.price)}</span>
+          ${priceHtml(item)}
           <button class="add-cart-icon-btn" data-click="addToCart('${esc(item.id)}')" title="Tambah ke Keranjang" aria-label="Tambah ${esc(item.name)} ke Keranjang">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -400,6 +421,44 @@ const CUSTOM_COLORS = [
   { name: 'Champagne Gold', hex: '#D4AF37' },
   { name: 'Hitam Elegan', hex: '#2B2B2B' }
 ];
+
+// Harga Bespoke dari server (bisa diubah di admin). Nilai di atas hanya cadangan jika server tidak terjangkau.
+let BESPOKE_PRICES = [];
+
+function shortIDR(n) {
+  return n % 1000 === 0 && n >= 1000 ? `Rp ${(n / 1000).toLocaleString('id-ID')}k` : formatIDR(n);
+}
+
+async function loadBespokePrices() {
+  try {
+    BESPOKE_PRICES = await api('/bespoke-prices');
+  } catch (e) {
+    return;
+  }
+  applyBespokePrices();
+}
+
+function applyBespokePrices() {
+  BESPOKE_PRICES.forEach((p) => {
+    if (p.kind === 'type') {
+      const t = CUSTOM_TYPES.find((x) => x.id === p.key);
+      if (t) t.price = p.price;
+    } else if (p.kind === 'addon') {
+      const input = document.querySelector(`#customAddonsOptions input[value="${CSS.escape(p.key)}"]`);
+      if (!input || p.price === null) return;
+      input.dataset.price = String(p.price);
+      input.dataset.name = p.label;
+      const txt = input.closest('label')?.querySelector('.addon-txt');
+      if (txt) txt.textContent = `${p.label} (estimasi +${shortIDR(p.price)})`;
+    }
+  });
+  if (document.getElementById('customBaseOptions')) {
+    renderCustomTypes();
+    // hitung ulang tambahan yang sudah dicentang dengan harga terbaru
+    document.querySelector('#customAddonsOptions input[type="checkbox"]')?.dispatchEvent(new Event('change'));
+    updateCustomizerSummary();
+  }
+}
 
 const customizerState = {
   type: CUSTOM_TYPES[0],
@@ -1260,7 +1319,7 @@ window.openQuickView = function(productId) {
         <div class="modal-details-col">
           <span class="modal-category">${esc(product.categoryName)}${product.badge ? ' • ' + esc(product.badge) : ''}</span>
           <h2 class="modal-title">${esc(product.name)}</h2>
-          <div class="modal-price">${formatIDR(product.price)}</div>
+          <div class="modal-price-wrap">${priceHtml(product, 'modal')}</div>
           <p class="modal-desc">${esc(product.description)}</p>
           
           <div class="modal-meta-box">
@@ -1506,6 +1565,59 @@ window.handleAdminLogout = async function() {
   showAdminLogin();
 };
 
+async function renderAdminBespokePrices() {
+  const body = document.getElementById('adminBespokeTableBody');
+  if (!body) return;
+  try {
+    BESPOKE_PRICES = await api('/bespoke-prices');
+  } catch (e) {
+    body.innerHTML = '<tr><td colspan="3">Gagal memuat harga. Coba lagi.</td></tr>';
+    return;
+  }
+  body.innerHTML = BESPOKE_PRICES.map((p) => `
+    <tr>
+      <td><strong>${esc(p.label)}</strong></td>
+      <td>${p.kind === 'addon' ? 'Tambahan' : 'Jenis produk'}</td>
+      <td>
+        <input type="number" class="bespoke-price-input" data-key="${esc(p.key)}" data-kind="${esc(p.kind)}"
+          min="0" max="100000000" step="1000" value="${p.price ?? ''}"
+          placeholder="${p.kind === 'addon' ? 'Wajib diisi' : 'Kosong = via konsultasi'}">
+      </td>
+    </tr>`).join('');
+}
+
+window.saveBespokePrices = async function() {
+  const inputs = [...document.querySelectorAll('.bespoke-price-input')];
+  const items = [];
+  for (const el of inputs) {
+    const raw = el.value.trim();
+    const price = raw === '' ? null : parseInt(raw, 10);
+    if (price !== null && (!Number.isInteger(price) || price < 0)) {
+      showToast('Ada harga yang tidak valid.');
+      el.focus();
+      return;
+    }
+    if (price === null && el.dataset.kind === 'addon') {
+      showToast('Harga tambahan wajib diisi.');
+      el.focus();
+      return;
+    }
+    items.push({ key: el.dataset.key, price });
+  }
+  const btn = document.getElementById('btnSaveBespoke');
+  if (btn) btn.disabled = true;
+  try {
+    await adminApi('/admin/bespoke-prices', { method: 'PUT', json: { items } });
+    showToast('Harga Bespoke berhasil disimpan! ✨');
+    await loadBespokePrices();
+    renderAdminBespokePrices();
+  } catch (e) {
+    showToast(e.message || 'Gagal menyimpan harga.');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+};
+
 window.switchAdminTab = function(tabName) {
   const tabs = document.querySelectorAll('.admin-tab');
   tabs.forEach(t => t.classList.toggle('active', t.getAttribute('data-tab') === tabName));
@@ -1514,6 +1626,8 @@ window.switchAdminTab = function(tabName) {
   const contentAdd = document.getElementById('adminTabAdd');
   const contentOrders = document.getElementById('adminTabOrders');
   const contentCategories = document.getElementById('adminTabCategories');
+  const contentBespoke = document.getElementById('adminTabBespoke');
+  if (contentBespoke) contentBespoke.style.display = (tabName === 'bespoke') ? 'block' : 'none';
 
   if (contentCategories) contentCategories.style.display = (tabName === 'categories') ? 'block' : 'none';
   if (contentProducts) contentProducts.style.display = (tabName === 'products') ? 'block' : 'none';
@@ -1526,6 +1640,8 @@ window.switchAdminTab = function(tabName) {
     renderAdminOrdersTable();
   } else if (tabName === 'categories') {
     renderAdminCategories();
+  } else if (tabName === 'bespoke') {
+    renderAdminBespokePrices();
   }
 };
 
@@ -1569,7 +1685,7 @@ window.renderAdminProductsTable = function() {
         </div>
       </td>
       <td><span class="category-tag" style="text-transform: capitalize;">${esc(item.categoryName || item.category)}</span></td>
-      <td style="font-weight: 600; color: var(--color-primary);">${formatIDR(item.price)}</td>
+      <td style="font-weight: 600; color: var(--color-primary);">${formatIDR(item.price)}${discountOf(item) ? `<br><s style="color: var(--color-text-muted); font-weight: 400; font-size: 0.8rem;">${formatIDR(discountOf(item).was)}</s> <span class="price-off">-${discountOf(item).pct}%</span>` : ''}</td>
       <td>
         ${item.badge ? `<span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: var(--color-primary-soft); color: var(--color-primary); font-weight: 600;">${esc(item.badge)}</span>` : '-'}
       </td>
@@ -1597,6 +1713,25 @@ function setProductImagePreview(src) {
   }
 }
 
+// Petunjuk diskon langsung di form admin
+window.updateDiscountHint = function() {
+  const hint = document.getElementById('prodDiscountHint');
+  if (!hint) return;
+  const price = parseInt(document.getElementById('prodPrice').value, 10) || 0;
+  const was = parseInt(document.getElementById('prodOriginalPrice').value, 10) || 0;
+  hint.classList.remove('is-error', 'is-ok');
+  if (!was) {
+    hint.textContent = 'Isi harga normal sebelum diskon. Harus lebih tinggi dari harga jual.';
+  } else if (was <= price) {
+    hint.textContent = 'Harga coret harus lebih tinggi dari harga jual.';
+    hint.classList.add('is-error');
+  } else {
+    const d = discountOf({ price, originalPrice: was });
+    hint.textContent = d ? `Tampil sebagai diskon ${d.pct}% (hemat ${formatIDR(d.save)}).` : 'Selisih terlalu kecil untuk ditampilkan sebagai diskon.';
+    hint.classList.add('is-ok');
+  }
+};
+
 window.startEditProduct = function(id) {
   const item = PRODUCTS.find(p => p.id === id);
   if (!item) return;
@@ -1605,7 +1740,9 @@ window.startEditProduct = function(id) {
   document.getElementById('prodName').value = item.name;
   document.getElementById('prodCategory').value = item.category;
   document.getElementById('prodPrice').value = item.price;
+  document.getElementById('prodOriginalPrice').value = item.originalPrice || '';
   document.getElementById('prodBadge').value = item.badge || '';
+  window.updateDiscountHint();
   document.getElementById('prodImage').value = item.image;
   document.getElementById('prodDescription').value = item.description || '';
   setProductImagePreview(item.image);
@@ -1678,6 +1815,7 @@ window.saveAdminProduct = async function() {
     name: document.getElementById('prodName').value.trim(),
     category: document.getElementById('prodCategory').value,
     price: parseInt(document.getElementById('prodPrice').value, 10),
+    originalPrice: parseInt(document.getElementById('prodOriginalPrice').value, 10) || null,
     badge: document.getElementById('prodBadge').value.trim(),
     image: document.getElementById('prodImage').value.trim(),
     description: document.getElementById('prodDescription').value.trim()
@@ -1689,6 +1827,11 @@ window.saveAdminProduct = async function() {
   }
   if (!Number.isInteger(payload.price) || payload.price < 0) {
     showToast('Harga tidak valid.');
+    return;
+  }
+  if (payload.originalPrice !== null && payload.originalPrice <= payload.price) {
+    showToast('Harga coret harus lebih tinggi dari harga jual, atau kosongkan.');
+    document.getElementById('prodOriginalPrice').focus();
     return;
   }
 

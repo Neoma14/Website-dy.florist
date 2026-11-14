@@ -691,6 +691,7 @@
           <button class="admin-tab active" data-tab="products" data-click="switchAdminTab('products')">📦 Kelola Produk (<span id="adminTotalCount">0</span>)</button>
           <button class="admin-tab" data-tab="add" data-click="switchAdminTab('add')">➕ Tambah Produk Baru</button>
           <button class="admin-tab" data-tab="categories" data-click="switchAdminTab('categories')">🏷️ Kategori (<span id="adminCategoriesCount">0</span>)</button>
+          <button class="admin-tab" data-tab="bespoke" data-click="switchAdminTab('bespoke')">💐 Harga Bespoke</button>
           <button class="admin-tab" data-tab="orders" data-click="switchAdminTab('orders')">📋 Riwayat Order (<span id="adminOrdersCount">0</span>)</button>
           <div class="admin-nav-spacer"></div>
           <button class="btn-logout" data-click="handleAdminLogout()">Keluar 🚪</button>
@@ -738,7 +739,13 @@
 
             <div class="form-group">
               <label for="prodPrice">Harga (IDR) *</label>
-              <input type="number" id="prodPrice" required min="1000" step="1000" placeholder="Contoh: 350000">
+              <input type="number" id="prodPrice" required min="1000" step="1000" placeholder="Contoh: 350000" data-input="updateDiscountHint()">
+            </div>
+
+            <div class="form-group">
+              <label for="prodOriginalPrice">Harga Coret / Harga Normal (Opsional)</label>
+              <input type="number" id="prodOriginalPrice" min="0" step="1000" placeholder="Kosongkan jika tidak diskon" data-input="updateDiscountHint()">
+              <small class="form-hint" id="prodDiscountHint">Isi harga normal sebelum diskon. Harus lebih tinggi dari harga jual.</small>
             </div>
 
             <div class="form-group">
@@ -800,6 +807,25 @@
           <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 8px;">
             Kategori baru otomatis tampil sebagai tab di katalog. Kategori hanya bisa dihapus jika belum ada produknya.
           </p>
+        </div>
+
+        <div class="admin-tab-content" id="adminTabBespoke" style="display: none;">
+          <p class="admin-note">Harga dasar tiap jenis produk dan harga tambahan di <strong>Bespoke Studio</strong>. Kosongkan harga jenis produk untuk menampilkan "Harga via konsultasi".</p>
+          <div class="admin-table-wrapper">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Jenis</th>
+                  <th>Harga (IDR)</th>
+                </tr>
+              </thead>
+              <tbody id="adminBespokeTableBody"></tbody>
+            </table>
+          </div>
+          <div class="form-actions" style="margin-top: 16px;">
+            <button type="button" class="btn btn-primary" id="btnSaveBespoke" data-click="saveBespokePrices()">Simpan Harga Bespoke</button>
+          </div>
         </div>
 
         <div class="admin-tab-content" id="adminTabOrders" style="display: none;">

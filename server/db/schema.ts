@@ -8,12 +8,23 @@ export const categories = mysqlTable('categories', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
+// Harga Bespoke Studio (jenis produk & tambahan), bisa diubah dari admin
+export const bespokePrices = mysqlTable('bespoke_prices', {
+  key: varchar('key', { length: 40 }).primaryKey(),
+  kind: varchar('kind', { length: 10 }).notNull(), // 'type' | 'addon'
+  label: varchar('label', { length: 60 }).notNull(),
+  price: int('price'), // null = harga via konsultasi (khusus jenis produk)
+  sort: int('sort').notNull().default(0),
+});
+
 export const products = mysqlTable('products', {
   id: varchar('id', { length: 40 }).primaryKey(),
   name: varchar('name', { length: 120 }).notNull(),
   category: varchar('category', { length: 30 }).notNull(),
   categoryName: varchar('category_name', { length: 40 }).notNull(),
   price: int('price').notNull(),
+  // Harga coret (harga normal sebelum diskon); null = tidak ada diskon
+  originalPrice: int('original_price'),
   badge: varchar('badge', { length: 40 }).notNull().default(''),
   description: text('description').notNull(),
   image: varchar('image', { length: 500 }).notNull(),

@@ -18,6 +18,7 @@ import mysql from "mysql2/promise";
 // server/db/schema.ts
 var schema_exports = {};
 __export(schema_exports, {
+  bespokePrices: () => bespokePrices,
   categories: () => categories,
   loginAttempts: () => loginAttempts,
   orderItems: () => orderItems,
@@ -34,12 +35,23 @@ var categories = mysqlTable("categories", {
   sort: int("sort").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
+var bespokePrices = mysqlTable("bespoke_prices", {
+  key: varchar("key", { length: 40 }).primaryKey(),
+  kind: varchar("kind", { length: 10 }).notNull(),
+  // 'type' | 'addon'
+  label: varchar("label", { length: 60 }).notNull(),
+  price: int("price"),
+  // null = harga via konsultasi (khusus jenis produk)
+  sort: int("sort").notNull().default(0)
+});
 var products = mysqlTable("products", {
   id: varchar("id", { length: 40 }).primaryKey(),
   name: varchar("name", { length: 120 }).notNull(),
   category: varchar("category", { length: 30 }).notNull(),
   categoryName: varchar("category_name", { length: 40 }).notNull(),
   price: int("price").notNull(),
+  // Harga coret (harga normal sebelum diskon); null = tidak ada diskon
+  originalPrice: int("original_price"),
   badge: varchar("badge", { length: 40 }).notNull().default(""),
   description: text("description").notNull(),
   image: varchar("image", { length: 500 }).notNull(),
@@ -221,11 +233,13 @@ function slugify(name) {
 }
 var cleanText = (v) => v.replace(/[\u0000-\u001f\u007f<>]/g, "").trim();
 var isAllowedImage = (s) => IMAGE_PATTERNS.some((re) => re.test(s));
+var normalizeOriginalPrice = (price, original) => original && original > price ? original : null;
 var text2 = (min, max) => t.String({ minLength: min, maxLength: max });
 var productBody = t.Object({
   name: text2(1, 120),
   category: t.String({ minLength: 1, maxLength: 30, pattern: "^[a-z0-9_]+$" }),
   price: t.Integer({ minimum: 0, maximum: 1e8 }),
+  originalPrice: t.Optional(t.Union([t.Integer({ minimum: 0, maximum: 1e8 }), t.Null()])),
   badge: text2(0, 40),
   description: text2(1, 1e3),
   image: text2(1, 500)
@@ -303,6 +317,7 @@ var toPublic = (p) => ({
   category: p.category,
   categoryName: p.categoryName,
   price: p.price,
+  originalPrice: p.originalPrice ?? null,
   badge: p.badge,
   description: p.description,
   image: p.image,
@@ -344,6 +359,9 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
 }).get("/categories", async () => {
   const rows = await getDb().select().from(schema_exports.categories).orderBy(asc(schema_exports.categories.sort), asc(schema_exports.categories.key));
   return rows.map((c) => ({ key: c.key, name: c.name, emoji: c.emoji }));
+}).get("/bespoke-prices", async () => {
+  const rows = await getDb().select().from(schema_exports.bespokePrices).orderBy(asc(schema_exports.bespokePrices.sort));
+  return rows.map((r) => ({ key: r.key, kind: r.kind, label: r.label, price: r.price }));
 }).get("/uploads/:name", async ({ params, set }) => {
   if (isProd() || !/^[a-f0-9]{32}\.(jpg|png|webp)$/.test(params.name)) {
     set.status = 404;
@@ -506,6 +524,7 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
     await getDb().insert(schema_exports.products).values({
       id,
       ...body,
+      originalPrice: normalizeOriginalPrice(body.price, body.originalPrice),
       categoryName,
       rating: 50,
       reviews: 1,
@@ -528,7 +547,7 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
       set.status = 422;
       return { error: "Kategori tidak ditemukan" };
     }
-    await db.update(schema_exports.products).set({ ...body, categoryName }).where(eq2(schema_exports.products.id, params.id));
+    await db.update(schema_exports.products).set({ ...body, originalPrice: normalizeOriginalPrice(body.price, body.originalPrice), categoryName }).where(eq2(schema_exports.products.id, params.id));
     if (old.image !== body.image) await removeImage(old.image);
     return { ok: true };
   }, { body: productBody }).delete("/products/:id", async ({ params, set }) => {
@@ -555,7 +574,33 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
     }
     const contentType = type === "png" ? "image/png" : type === "webp" ? "image/webp" : "image/jpeg";
     return { url: await storeImage(buf, type, contentType) };
-  }, { body: t.Object({ file: t.File() }) }).get("/orders", async () => {
+  }, { body: t.Object({ file: t.File() }) }).put("/bespoke-prices", async ({ body, set }) => {
+    const db = getDb();
+    const rows = await db.select().from(schema_exports.bespokePrices);
+    const byKey = new Map(rows.map((r) => [r.key, r]));
+    for (const item of body.items) {
+      const row = byKey.get(item.key);
+      if (!row) {
+        set.status = 422;
+        return { error: "Data harga tidak dikenal" };
+      }
+      if (row.kind === "addon" && item.price === null) {
+        set.status = 422;
+        return { error: `Harga ${row.label} wajib diisi` };
+      }
+    }
+    for (const item of body.items) {
+      await db.update(schema_exports.bespokePrices).set({ price: item.price }).where(eq2(schema_exports.bespokePrices.key, item.key));
+    }
+    return { ok: true };
+  }, {
+    body: t.Object({
+      items: t.Array(t.Object({
+        key: t.String({ minLength: 1, maxLength: 40, pattern: "^[a-z0-9_]+$" }),
+        price: t.Union([t.Integer({ minimum: 0, maximum: 1e8 }), t.Null()])
+      }), { minItems: 1, maxItems: 50 })
+    })
+  }).get("/orders", async () => {
     const db = getDb();
     const orders2 = await db.select().from(schema_exports.orders).orderBy(desc(schema_exports.orders.createdAt)).limit(500);
     const items = orders2.length ? await db.select().from(schema_exports.orderItems).where(inArray(schema_exports.orderItems.orderId, orders2.map((o) => o.id))) : [];

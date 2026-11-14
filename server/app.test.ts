@@ -159,6 +159,40 @@ test('produk: tambah, ubah, hapus oleh admin', async () => {
   assert.equal((await call(`/api/admin/products/${id}`, { method: 'DELETE', cookie })).status, 404);
 });
 
+test('produk: harga coret hanya disimpan jika lebih tinggi dari harga jual', async () => {
+  const cookie = await login();
+  const body = { name: 'Uji Diskon', category: 'gift_craft', price: 250000, originalPrice: 310000, badge: '', description: 'desc', image: '/assets/logo.png' };
+  const { id } = await (await call('/api/admin/products', { method: 'POST', cookie, ...json(body) })).json() as { id: string };
+  const find = async () => ((await (await call('/api/products')).json()) as any[]).find((p) => p.id === id);
+  assert.equal((await find()).originalPrice, 310000);
+  // harga coret <= harga jual -> dikosongkan (tidak ada diskon palsu)
+  await call(`/api/admin/products/${id}`, { method: 'PUT', cookie, ...json({ ...body, originalPrice: 200000 }) });
+  assert.equal((await find()).originalPrice, null);
+  // tanpa field -> kosong
+  const { originalPrice: _, ...noOriginal } = body;
+  await call(`/api/admin/products/${id}`, { method: 'PUT', cookie, ...json(noOriginal) });
+  assert.equal((await find()).originalPrice, null);
+  assert.equal((await call(`/api/admin/products/${id}`, { method: 'PUT', cookie, ...json({ ...body, originalPrice: -5 }) })).status, 422);
+  await call(`/api/admin/products/${id}`, { method: 'DELETE', cookie });
+});
+
+test('harga Bespoke: publik bisa baca, ubah hanya admin dengan data valid', async () => {
+  const list = await (await call('/api/bespoke-prices')).json() as any[];
+  assert.ok(list.some((p) => p.key === 'hand_bouquet' && p.kind === 'type'));
+  assert.ok(list.some((p) => p.key === 'chocolate' && p.kind === 'addon'));
+  const put = (items: unknown, cookie?: string) => call('/api/admin/bespoke-prices', { method: 'PUT', cookie, ...json({ items }) });
+  assert.equal((await put([{ key: 'hand_bouquet', price: 1000 }])).status, 401);
+  const cookie = await login();
+  assert.equal((await put([{ key: 'tidak_ada', price: 1000 }], cookie)).status, 422);
+  assert.equal((await put([{ key: 'chocolate', price: null }], cookie)).status, 422);
+  assert.equal((await put([{ key: 'hand_bouquet', price: -1 }], cookie)).status, 422);
+  const before = list.find((p) => p.key === 'hand_bouquet').price;
+  assert.equal((await put([{ key: 'hand_bouquet', price: null }], cookie)).status, 200);
+  const after = await (await call('/api/bespoke-prices')).json() as any[];
+  assert.equal(after.find((p) => p.key === 'hand_bouquet').price, null);
+  assert.equal((await put([{ key: 'hand_bouquet', price: before }], cookie)).status, 200);
+});
+
 test('kategori: daftar publik tersedia, endpoint kelola butuh login', async () => {
   const res = await call('/api/categories');
   assert.equal(res.status, 200);

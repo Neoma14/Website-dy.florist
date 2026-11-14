@@ -39,12 +39,17 @@ const cleanText = (v: string) => v.replace(/[\u0000-\u001f\u007f<>]/g, '').trim(
 
 const isAllowedImage = (s: string) => IMAGE_PATTERNS.some((re) => re.test(s));
 
+// Harga coret hanya disimpan jika lebih tinggi dari harga jual (diskon nyata); selain itu dikosongkan
+const normalizeOriginalPrice = (price: number, original?: number | null) =>
+  original && original > price ? original : null;
+
 const text = (min: number, max: number) => t.String({ minLength: min, maxLength: max });
 
 const productBody = t.Object({
   name: text(1, 120),
   category: t.String({ minLength: 1, maxLength: 30, pattern: '^[a-z0-9_]+$' }),
   price: t.Integer({ minimum: 0, maximum: 100_000_000 }),
+  originalPrice: t.Optional(t.Union([t.Integer({ minimum: 0, maximum: 100_000_000 }), t.Null()])),
   badge: text(0, 40),
   description: text(1, 1000),
   image: text(1, 500),
@@ -139,6 +144,7 @@ async function removeImage(url: string) {
 
 const toPublic = (p: typeof schema.products.$inferSelect) => ({
   id: p.id, name: p.name, category: p.category, categoryName: p.categoryName, price: p.price,
+  originalPrice: p.originalPrice ?? null,
   badge: p.badge, description: p.description, image: p.image, rating: p.rating / 10, reviews: p.reviews,
 });
 
@@ -193,6 +199,11 @@ export const app = new Elysia({ prefix: '/api' })
     const rows = await getDb().select().from(schema.categories)
       .orderBy(asc(schema.categories.sort), asc(schema.categories.key));
     return rows.map((c) => ({ key: c.key, name: c.name, emoji: c.emoji }));
+  })
+
+  .get('/bespoke-prices', async () => {
+    const rows = await getDb().select().from(schema.bespokePrices).orderBy(asc(schema.bespokePrices.sort));
+    return rows.map((r) => ({ key: r.key, kind: r.kind, label: r.label, price: r.price }));
   })
 
   .get('/uploads/:name', async ({ params, set }) => {
@@ -372,7 +383,7 @@ export const app = new Elysia({ prefix: '/api' })
       }
       const id = 'prod_' + randomUUID().replace(/-/g, '').slice(0, 16);
       await getDb().insert(schema.products).values({
-        id, ...body, categoryName, rating: 50, reviews: 1,
+        id, ...body, originalPrice: normalizeOriginalPrice(body.price, body.originalPrice), categoryName, rating: 50, reviews: 1,
         badge: body.badge || 'New Arrival',
       });
       return { id };
@@ -395,7 +406,7 @@ export const app = new Elysia({ prefix: '/api' })
         return { error: 'Kategori tidak ditemukan' };
       }
       await db.update(schema.products)
-        .set({ ...body, categoryName })
+        .set({ ...body, originalPrice: normalizeOriginalPrice(body.price, body.originalPrice), categoryName })
         .where(eq(schema.products.id, params.id));
       if (old.image !== body.image) await removeImage(old.image);
       return { ok: true };
@@ -428,6 +439,34 @@ export const app = new Elysia({ prefix: '/api' })
       const contentType = type === 'png' ? 'image/png' : type === 'webp' ? 'image/webp' : 'image/jpeg';
       return { url: await storeImage(buf, type, contentType) };
     }, { body: t.Object({ file: t.File() }) })
+
+    .put('/bespoke-prices', async ({ body, set }) => {
+      const db = getDb();
+      const rows = await db.select().from(schema.bespokePrices);
+      const byKey = new Map(rows.map((r) => [r.key, r]));
+      for (const item of body.items) {
+        const row = byKey.get(item.key);
+        if (!row) {
+          set.status = 422;
+          return { error: 'Data harga tidak dikenal' };
+        }
+        if (row.kind === 'addon' && item.price === null) {
+          set.status = 422;
+          return { error: `Harga ${row.label} wajib diisi` };
+        }
+      }
+      for (const item of body.items) {
+        await db.update(schema.bespokePrices).set({ price: item.price }).where(eq(schema.bespokePrices.key, item.key));
+      }
+      return { ok: true };
+    }, {
+      body: t.Object({
+        items: t.Array(t.Object({
+          key: t.String({ minLength: 1, maxLength: 40, pattern: '^[a-z0-9_]+$' }),
+          price: t.Union([t.Integer({ minimum: 0, maximum: 100_000_000 }), t.Null()]),
+        }), { minItems: 1, maxItems: 50 }),
+      }),
+    })
 
     .get('/orders', async () => {
       const db = getDb();

@@ -2952,3 +2952,124 @@ body.cmb-on .floating-whatsapp {
   overflow-y: auto;
   padding-right: 4px;
 }
+
+/* ==========================================
+   Harga coret & diskon (khas dy.florist: magenta + aksen emas)
+   ========================================== */
+.price-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.2;
+}
+
+.price-now {
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  letter-spacing: -0.01em;
+}
+
+.price-was-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.price-was {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  text-decoration-color: rgba(108, 98, 103, 0.7);
+}
+
+.price-off {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--color-primary-soft);
+  border: 1px solid rgba(228, 0, 127, 0.25);
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.product-discount-tag {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #E4007F 0%, #FF4FA3 100%);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: 0 6px 14px rgba(228, 0, 127, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.price-stack--modal {
+  margin-bottom: 16px;
+  gap: 4px;
+}
+
+.price-stack--modal .price-now {
+  font-size: 1.6rem;
+}
+
+.price-stack--modal .price-was {
+  font-size: 0.95rem;
+}
+
+.price-stack--modal .price-off {
+  font-size: 0.8rem;
+  padding: 2px 9px;
+}
+
+.price-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #9A7B3A;
+}
+
+.price-save::before {
+  content: "✦";
+  color: var(--color-accent-gold);
+}
+
+.modal-price-wrap .modal-price {
+  margin-bottom: 16px;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.form-hint.is-error { color: #C62828; }
+.form-hint.is-ok { color: #2E7D32; font-weight: 600; }
+
+.admin-note {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin-bottom: 12px;
+}
+
+.bespoke-price-input {
+  width: 100%;
+  max-width: 220px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  font-family: inherit;
+  font-size: 0.9rem;
+}

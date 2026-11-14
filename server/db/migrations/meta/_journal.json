@@ -29,6 +29,20 @@
       "when": 1794666176279,
       "tag": "0003_real_products",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1794668269589,
+      "tag": "0004_original_price",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1794668363194,
+      "tag": "0005_bespoke_prices",
+      "breakpoints": true
     }
   ]
 }
