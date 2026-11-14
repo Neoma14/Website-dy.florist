@@ -18,6 +18,10 @@ try {
   console.log('Migrasi database selesai.');
   process.exit(0);
 } catch (e) {
-  console.error('Migrasi database gagal:', e instanceof Error ? e.message : e);
+  // Cetak penyebab aslinya (kode + pesan) dengan isi dalam tanda kutip disamarkan
+  const err = e as { cause?: { code?: string; errno?: number; message?: string } };
+  const cause = err.cause ?? {};
+  const msg = String(cause.message ?? (e instanceof Error ? e.message.split('\n')[0] : e)).replace(/'[^']*'/g, "'…'");
+  console.error(`Migrasi database gagal. Penyebab: ${cause.code ?? 'tidak diketahui'} (errno ${cause.errno ?? '-'}) — ${msg}`);
   process.exit(1);
 }
