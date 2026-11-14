@@ -203,6 +203,28 @@ test('produk: harga coret hanya disimpan jika lebih tinggi dari harga jual', asy
   await call(`/api/admin/products/${id}`, { method: 'DELETE', cookie });
 });
 
+test('halaman bagikan produk: tag Open Graph berisi foto, teks di-escape, id aneh ditolak', async () => {
+  const cookie = await login();
+  const body = { name: 'Uji "Share" <b>', category: 'gift_craft', price: 150000, badge: '', description: 'Deskripsi & detail', image: '/assets/logo.png' };
+  const { id } = await (await call('/api/admin/products', { method: 'POST', cookie, ...json(body) })).json() as { id: string };
+  const res = await call(`/api/share/${id}`);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type') ?? '', /text\/html/);
+  const html = await res.text();
+  assert.match(html, /<meta property="og:image" content="https:\/\/www\.dyflorist\.site\/assets\/logo\.png">/);
+  assert.match(html, /Uji &quot;Share&quot; &lt;b&gt;/);
+  assert.ok(!html.includes('<b>'));
+  assert.match(html, new RegExp(`url=/katalog\\?produk=${id}`));
+  // /produk/:id lewat handler Vercel diarahkan ke halaman yang sama
+  const { default: handler } = await import('./handler');
+  const viaHandler = await handler.fetch(new Request(`http://localhost/produk/${id}`, { headers: { 'x-forwarded-for': newIp() } }));
+  assert.equal(viaHandler.status, 200);
+  assert.match(await viaHandler.text(), /og:image/);
+  assert.equal((await call('/api/share/tidak-ada')).status, 404);
+  assert.equal((await call('/api/share/..%2F..%2Fetc')).status, 404);
+  await call(`/api/admin/products/${id}`, { method: 'DELETE', cookie });
+});
+
 test('harga Bespoke: publik bisa baca, ubah hanya admin dengan data valid', async () => {
   const list = await (await call('/api/bespoke-prices')).json() as any[];
   assert.ok(list.some((p) => p.key === 'hand_bouquet' && p.kind === 'type'));

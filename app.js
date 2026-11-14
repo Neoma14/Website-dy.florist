@@ -209,6 +209,43 @@ let cart = loadCart();
 let activeFilter = 'all';
 let searchQuery = '';
 
+// Halaman /katalog menampilkan semua produk; beranda hanya beberapa produk pertama
+const IS_CATALOG_PAGE = location.pathname.replace(/\/+$/, '') === '/katalog';
+const HOME_PRODUCT_LIMIT = 4;
+const SITE_ORIGIN = 'https://www.dyflorist.site';
+
+function setupCatalogPage() {
+  if (!IS_CATALOG_PAGE) return;
+  document.body.classList.add('page-katalog');
+  document.title = 'Katalog Lengkap — dy.florist';
+  const title = document.getElementById('catalogTitle');
+  if (title) title.textContent = 'Katalog Lengkap';
+  // Tautan menu ke bagian beranda (#...) diarahkan ke halaman utama
+  document.querySelectorAll('a[href^="#"]').forEach((a) => {
+    const href = a.getAttribute('href');
+    if (href.length > 1 && href !== '#catalog') a.setAttribute('href', '/' + href);
+  });
+  const params = new URLSearchParams(location.search);
+  const kategori = params.get('kategori');
+  if (kategori && /^[a-z0-9_]{1,30}$/.test(kategori)) activeFilter = kategori;
+  const q = (params.get('q') || '').slice(0, 60);
+  if (q) {
+    searchQuery = q;
+    const input = document.getElementById('searchInput');
+    if (input) input.value = q;
+  }
+}
+
+// Buka detail produk dari tautan /katalog?produk=<id> (mis. dari pesan WhatsApp)
+function openProductFromUrl() {
+  const id = new URLSearchParams(location.search).get('produk');
+  if (id && PRODUCTS.some((p) => p.id === id)) window.openQuickView(id);
+}
+
+function productShareUrl(id) {
+  return `${SITE_ORIGIN}/produk/${encodeURIComponent(id)}`;
+}
+
 
 // ==========================================
 // 3. INITIALIZATION
@@ -216,6 +253,7 @@ let searchQuery = '';
 document.addEventListener('DOMContentLoaded', () => {
   const gridEl = document.getElementById('productsGrid');
   if (gridEl) gridEl.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; padding: 32px; color: var(--color-text-muted);">Memuat produk...</p>';
+  setupCatalogPage();
   Promise.all([loadCategories(), loadProducts()]).then(() => {
     renderCategoryTabs();
     populateCategorySelects();
@@ -223,6 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
       gridEl.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; padding: 32px; color: var(--color-text-muted);">Produk gagal dimuat. Silakan muat ulang halaman.</p>';
     } else {
       renderCatalog();
+      openProductFromUrl();
     }
     // Jika admin sudah terbuka (alamat /admin) sebelum produk selesai dimuat, segarkan tabelnya
     if (isAdminLoggedIn) {
@@ -320,7 +359,10 @@ function renderCatalog() {
 
   if (emptyState) emptyState.style.display = 'none';
 
-  grid.innerHTML = filtered.map(item => `
+  updateCatalogMoreButton(filtered.length);
+  const shown = IS_CATALOG_PAGE ? filtered : filtered.slice(0, HOME_PRODUCT_LIMIT);
+
+  grid.innerHTML = shown.map(item => `
     <article class="product-card" data-id="${esc(item.id)}">
       ${item.badge ? `<span class="product-badge-tag">${esc(item.badge)}</span>` : ''}
       <div class="product-img-wrap">
@@ -345,6 +387,17 @@ function renderCatalog() {
       </div>
     </article>
   `).join('');
+}
+
+function updateCatalogMoreButton(total) {
+  const btn = document.getElementById('catalogMoreBtn');
+  if (!btn || IS_CATALOG_PAGE) return;
+  const params = new URLSearchParams();
+  if (activeFilter !== 'all') params.set('kategori', activeFilter);
+  if (searchQuery) params.set('q', searchQuery);
+  btn.setAttribute('href', '/katalog' + (params.toString() ? '?' + params : ''));
+  const text = document.getElementById('catalogMoreText');
+  if (text) text.textContent = total > HOME_PRODUCT_LIMIT ? `Lihat Semua (${total})` : 'Lihat Semua Produk';
 }
 
 function setupSearch() {
@@ -1143,11 +1196,15 @@ function renderCartDrawer() {
     if (emptyState) emptyState.style.display = 'block';
     if (list) list.innerHTML = '';
     if (drawerFooter) drawerFooter.style.display = 'none';
+    const detailsEmpty = document.getElementById('drawerOrderDetails');
+    if (detailsEmpty) detailsEmpty.style.display = 'none';
     return;
   }
 
   if (emptyState) emptyState.style.display = 'none';
   if (drawerFooter) drawerFooter.style.display = 'block';
+  const detailsEl = document.getElementById('drawerOrderDetails');
+  if (detailsEl) detailsEl.style.display = 'flex';
 
   if (list) {
     list.innerHTML = cart.map(item => `
@@ -1182,6 +1239,7 @@ function checkoutCartWhatsApp() {
   const day = val('drawerDate');
   const time = val('drawerTime');
   const note = val('drawerNote') || '(Tanpa ucapan)';
+  const request = val('drawerRequest');
 
   const missing = [];
   if (!name) missing.push('nama pemesan');
@@ -1204,8 +1262,9 @@ function checkoutCartWhatsApp() {
 
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
+  // Link produk: WhatsApp menampilkan pratinjau foto dari link pertama
   let itemsText = cart.map((item, index) => {
-    return `${index + 1}. *${item.name}* x${item.quantity} = ${formatIDR(item.price * item.quantity)}`;
+    return `${index + 1}. *${item.name}* x${item.quantity} = ${formatIDR(item.price * item.quantity)}\n   Foto: ${productShareUrl(item.id)}`;
   }).join('\n');
 
   const text = `🛍️ *ORDER BARU — DY.FLORIST* 🛍️\n` +
@@ -1217,7 +1276,9 @@ function checkoutCartWhatsApp() {
                `*Pemesan:* ${recipient}\n` +
                `${deliveryLine}\n` +
                `*Waktu:* ${when}\n` +
+               `*Keterangan / Request:* ${request || '-'}\n` +
                `*Pesan Kartu Ucapan:*\n"${note}"\n\n` +
+               `_Catatan: harga dapat lebih tinggi atau lebih rendah jika ada request khusus atau menyesuaikan ketersediaan stok. Harga final dikonfirmasi oleh admin._\n\n` +
                `Halo Florist dy.florist, saya ingin konfirmasi pesanan ini. Mohon info nomor rekening & ketersediaan. Terima kasih! ✨`;
 
   // Simpan pesanan di server (total dihitung ulang server). Gagal pun WhatsApp tetap dibuka.
@@ -1226,7 +1287,8 @@ function checkoutCartWhatsApp() {
     json: {
       recipient: recipient.slice(0, 120),
       scheduled: date.slice(0, 120),
-      note: ((method === 'Diantar' ? `Penerima: ${receiver || name}\nAlamat: ${address}\n` : '') + `Ucapan: ${note}`).slice(0, 500),
+      note: ((method === 'Diantar' ? `Penerima: ${receiver || name}\nAlamat: ${address}\n` : '') +
+        (request ? `Request: ${request}\n` : '') + `Ucapan: ${note}`).slice(0, 500),
       items: cart.map(i => ({ id: i.id, qty: i.quantity }))
     }
   }).catch(() => {});

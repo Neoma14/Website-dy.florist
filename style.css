@@ -3102,3 +3102,64 @@ body.cmb-on .floating-whatsapp {
 
 .admin-recover-box[hidden] { display: none; }
 .admin-recover-box p { margin: 0 0 10px; }
+
+/* ==========================================
+   Beranda: tombol "Lihat Semua"; halaman /katalog
+   ========================================== */
+.catalog-controls {
+  align-items: center;
+}
+
+.catalog-more-btn {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.catalog-back-link {
+  display: none;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+body.page-katalog .catalog-back-link { display: inline-block; }
+body.page-katalog .catalog-more-btn { display: none; }
+body.page-katalog #home,
+body.page-katalog #pillars,
+body.page-katalog #customizer,
+body.page-katalog #cara-pesan,
+body.page-katalog #faq,
+body.page-katalog #contact { display: none; }
+body.page-katalog .catalog-section { padding-top: 48px; min-height: 70vh; }
+
+@media (max-width: 600px) {
+  .catalog-more-btn { margin-left: 0; width: 100%; justify-content: center; }
+}
+
+/* ==========================================
+   Keranjang: form ikut digulir bersama daftar item, total & tombol tetap terlihat
+   ========================================== */
+.drawer-body .drawer-order-details {
+  max-height: none;
+  overflow: visible;
+  padding: 16px 0 0;
+  margin: 8px 0 0;
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.drawer-price-note {
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-xs);
+  background: #FFF8E8;
+  border: 1px solid #F0D9A0;
+  color: #7A5300;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.drawer-footer {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}

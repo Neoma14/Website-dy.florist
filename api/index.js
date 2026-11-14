@@ -466,6 +466,40 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
 }).get("/categories", async () => {
   const rows = await getDb().select().from(schema_exports.categories).orderBy(asc(schema_exports.categories.sort), asc(schema_exports.categories.key));
   return rows.map((c) => ({ key: c.key, name: c.name, emoji: c.emoji }));
+}).get("/share/:id", async ({ params }) => {
+  const html = (body, status = 200) => new Response(body, {
+    status,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "public, max-age=300",
+      "x-content-type-options": "nosniff"
+    }
+  });
+  const id = params.id;
+  const [p] = /^[\w-]{1,40}$/.test(id) ? await getDb().select().from(schema_exports.products).where(eq2(schema_exports.products.id, id)).limit(1) : [];
+  if (!p) {
+    return html('<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=/katalog"><title>dy.florist</title></head><body><a href="/katalog">Lihat katalog dy.florist</a></body></html>', 404);
+  }
+  const e = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const image = p.image.startsWith("/") ? SITE_URL + p.image : p.image;
+  const price = "Rp " + p.price.toLocaleString("id-ID");
+  const target = `/katalog?produk=${encodeURIComponent(p.id)}`;
+  const title = `${p.name} \u2014 ${price}`;
+  return html(`<!DOCTYPE html>
+<html lang="id"><head>
+<meta charset="utf-8">
+<title>${e(title)} | dy.florist</title>
+<meta name="description" content="${e(p.description.slice(0, 200))}">
+<meta property="og:type" content="product">
+<meta property="og:site_name" content="dy.florist">
+<meta property="og:title" content="${e(title)}">
+<meta property="og:description" content="${e(p.description.slice(0, 200))}">
+<meta property="og:image" content="${e(image)}">
+<meta property="og:url" content="${e(SITE_URL + "/produk/" + p.id)}">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="${e(SITE_URL + target)}">
+<meta http-equiv="refresh" content="0; url=${e(target)}">
+</head><body><p><a href="${e(target)}">${e(p.name)}</a></p></body></html>`);
 }).get("/bespoke-prices", async () => {
   const rows = await getDb().select().from(schema_exports.bespokePrices).orderBy(asc(schema_exports.bespokePrices.sort));
   return rows.map((r) => ({ key: r.key, kind: r.kind, label: r.label, price: r.price }));
@@ -760,7 +794,12 @@ var app_default = app;
 
 // server/handler.ts
 var handler_default = {
-  fetch: (request) => app_default.fetch(request)
+  fetch: (request) => {
+    const url = new URL(request.url);
+    const m = /^\/produk\/([\w-]{1,40})\/?$/.exec(url.pathname);
+    if (m) return app_default.fetch(new Request(`${url.origin}/api/share/${m[1]}`, { method: request.method, headers: request.headers }));
+    return app_default.fetch(request);
+  }
 };
 export {
   handler_default as default

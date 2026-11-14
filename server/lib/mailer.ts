@@ -1,7 +1,7 @@
 // Pengiriman email peringatan keamanan lewat Resend (https://resend.com), tanpa dependensi tambahan.
 // Env: RESEND_API_KEY (wajib untuk mengirim), ALERT_EMAIL, MAIL_FROM, SITE_URL.
 export const ALERT_EMAIL = process.env.ALERT_EMAIL || 'dyfloristparcel@gmail.com';
-const SITE_URL = (process.env.SITE_URL || 'https://www.dyflorist.site').replace(/\/+$/, '');
+export const SITE_URL = (process.env.SITE_URL || 'https://www.dyflorist.site').replace(/\/+$/, '');
 
 const escHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 

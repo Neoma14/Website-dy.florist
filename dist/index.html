@@ -22,8 +22,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <script type="module" crossorigin src="/assets/index-NZZ4AwnW.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-Bt6VfThM.css">
+  <script type="module" crossorigin src="/assets/index-Cpop-zq0.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-BBiFnUVc.css">
 </head>
 <body>
   <!-- Top Announcement Bar -->
@@ -217,8 +217,9 @@
     <section class="section catalog-section" id="catalog">
       <div class="container">
         <div class="section-header text-center">
+          <a href="/" class="catalog-back-link" id="catalogBackLink">← Kembali ke Beranda</a>
           <span class="sub-heading">Koleksi Terkini</span>
-          <h2 class="section-title">Katalog Produk Pilihan</h2>
+          <h2 class="section-title" id="catalogTitle">Katalog Produk Pilihan</h2>
           <p class="section-description">
             Pilih kreasi favorit Anda atau pesan langsung dengan custom ucapan yang dikirim langsung melalui WhatsApp.
           </p>
@@ -236,6 +237,9 @@
             </svg>
             <input type="text" id="searchInput" placeholder="Cari buket, hampers, dekorasi...">
           </div>
+          <a href="/katalog" class="btn btn-outline catalog-more-btn" id="catalogMoreBtn">
+            <span id="catalogMoreText">Lihat Semua Produk</span> <span aria-hidden="true">→</span>
+          </a>
         </div>
 
         <!-- Product Grid -->
@@ -600,11 +604,8 @@
       </div>
 
       <div class="cart-items-list" id="cartItemsList"></div>
-    </div>
-
-    <div class="drawer-footer" id="drawerFooter" style="display: none;">
       <!-- Order Recipient & Card Input in Drawer -->
-      <div class="drawer-order-details">
+      <div class="drawer-order-details" id="drawerOrderDetails" style="display: none;">
         <label for="drawerRecipient">Nama Pemesan *</label>
         <input type="text" id="drawerRecipient" maxlength="60" autocomplete="name" placeholder="Nama Anda">
 
@@ -630,9 +631,17 @@
           <input type="time" id="drawerTime" value="10:00" aria-label="Jam">
         </div>
 
-        <label for="drawerNote">Pesan Kartu Ucapan (Free):</label>
-        <textarea id="drawerNote" rows="2" placeholder="Tuliskan ucapan kartu..."></textarea>
+        <label for="drawerRequest">Keterangan / Request Khusus (Opsional)</label>
+        <textarea id="drawerRequest" rows="2" maxlength="300" placeholder="Contoh: warna wrapping biru, pita gold, ukuran lebih besar, ganti jenis bunga"></textarea>
+
+        <label for="drawerNote">Pesan Kartu Ucapan (Free)</label>
+        <textarea id="drawerNote" rows="3" maxlength="300" placeholder="Tuliskan ucapan kartu..."></textarea>
+
+        <p class="drawer-price-note">Harga dapat lebih tinggi atau lebih rendah jika ada request khusus atau menyesuaikan ketersediaan stok. Harga final dikonfirmasi oleh admin via WhatsApp.</p>
       </div>
+    </div>
+
+    <div class="drawer-footer" id="drawerFooter" style="display: none;">
 
       <div class="drawer-subtotal-row">
         <span>Total Pesanan:</span>

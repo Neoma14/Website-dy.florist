@@ -1,4 +1,4 @@
-import { sendBlockedAlert } from './lib/mailer';
+import { SITE_URL, sendBlockedAlert } from './lib/mailer';
 import { Elysia, t } from 'elysia';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -202,6 +202,45 @@ export const app = new Elysia({ prefix: '/api' })
     const rows = await getDb().select().from(schema.categories)
       .orderBy(asc(schema.categories.sort), asc(schema.categories.key));
     return rows.map((c) => ({ key: c.key, name: c.name, emoji: c.emoji }));
+  })
+
+  // Halaman kecil berisi tag Open Graph agar link produk di WhatsApp tampil dengan foto produk
+  .get('/share/:id', async ({ params }) => {
+    const html = (body: string, status = 200) => new Response(body, {
+      status,
+      headers: {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'public, max-age=300',
+        'x-content-type-options': 'nosniff',
+      },
+    });
+    const id = params.id;
+    const [p] = /^[\w-]{1,40}$/.test(id)
+      ? await getDb().select().from(schema.products).where(eq(schema.products.id, id)).limit(1)
+      : [];
+    if (!p) {
+      return html('<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=/katalog"><title>dy.florist</title></head><body><a href="/katalog">Lihat katalog dy.florist</a></body></html>', 404);
+    }
+    const e = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+    const image = p.image.startsWith('/') ? SITE_URL + p.image : p.image;
+    const price = 'Rp ' + p.price.toLocaleString('id-ID');
+    const target = `/katalog?produk=${encodeURIComponent(p.id)}`;
+    const title = `${p.name} — ${price}`;
+    return html(`<!DOCTYPE html>
+<html lang="id"><head>
+<meta charset="utf-8">
+<title>${e(title)} | dy.florist</title>
+<meta name="description" content="${e(p.description.slice(0, 200))}">
+<meta property="og:type" content="product">
+<meta property="og:site_name" content="dy.florist">
+<meta property="og:title" content="${e(title)}">
+<meta property="og:description" content="${e(p.description.slice(0, 200))}">
+<meta property="og:image" content="${e(image)}">
+<meta property="og:url" content="${e(SITE_URL + '/produk/' + p.id)}">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="${e(SITE_URL + target)}">
+<meta http-equiv="refresh" content="0; url=${e(target)}">
+</head><body><p><a href="${e(target)}">${e(p.name)}</a></p></body></html>`);
   })
 
   .get('/bespoke-prices', async () => {
