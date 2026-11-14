@@ -3163,3 +3163,31 @@ body.page-katalog .catalog-section { padding-top: 48px; min-height: 70vh; }
   padding-top: 14px;
   padding-bottom: 14px;
 }
+
+/* Diskon di keranjang */
+.cart-item-price .price-was {
+  margin-left: 4px;
+  font-weight: 400;
+}
+
+.cart-item-price .price-off {
+  margin-left: 2px;
+  vertical-align: 1px;
+}
+
+.drawer-savings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #9A7B3A;
+}
+
+.drawer-savings-row[hidden] { display: none; }
+
+.drawer-savings-row span:first-child::before {
+  content: "✦ ";
+  color: var(--color-accent-gold);
+}

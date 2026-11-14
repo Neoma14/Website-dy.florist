@@ -1180,6 +1180,19 @@ window.closeCart = function() {
   }
 };
 
+// Diskon item keranjang: harga coret diambil dari data produk terbaru
+function cartItemDiscount(item) {
+  const p = PRODUCTS.find((x) => x.id === item.id);
+  return p ? discountOf({ price: item.price, originalPrice: p.originalPrice }) : null;
+}
+
+function cartSavings() {
+  return cart.reduce((sum, item) => {
+    const d = cartItemDiscount(item);
+    return sum + (d ? d.save * item.quantity : 0);
+  }, 0);
+}
+
 function renderCartDrawer() {
   const list = document.getElementById('cartItemsList');
   const emptyState = document.getElementById('emptyCartState');
@@ -1212,7 +1225,7 @@ function renderCartDrawer() {
         <img src="${esc(safeImg(item.image))}" alt="${esc(item.name)}" class="cart-item-img">
         <div class="cart-item-info">
           <div class="cart-item-title">${esc(item.name)}</div>
-          <div class="cart-item-price">${formatIDR(item.price)}</div>
+          <div class="cart-item-price">${formatIDR(item.price)}${cartItemDiscount(item) ? ` <s class="price-was">${formatIDR(cartItemDiscount(item).was)}</s> <span class="price-off">-${cartItemDiscount(item).pct}%</span>` : ''}</div>
           <div class="cart-item-qty">
             <button class="qty-btn" data-click="changeCartQty('${esc(item.id)}', -1)">-</button>
             <span class="qty-val">${item.quantity}</span>
@@ -1225,6 +1238,11 @@ function renderCartDrawer() {
   }
 
   if (subtotalEl) subtotalEl.innerText = formatIDR(subtotal);
+  const savings = cartSavings();
+  const savingsRow = document.getElementById('drawerSavings');
+  if (savingsRow) savingsRow.hidden = savings <= 0;
+  const savingsAmount = document.getElementById('drawerSavingsAmount');
+  if (savingsAmount) savingsAmount.textContent = formatIDR(savings);
 }
 
 function checkoutCartWhatsApp() {
@@ -1264,7 +1282,9 @@ function checkoutCartWhatsApp() {
 
   // Link produk: WhatsApp menampilkan pratinjau foto dari link pertama
   let itemsText = cart.map((item, index) => {
-    return `${index + 1}. *${item.name}* x${item.quantity} = ${formatIDR(item.price * item.quantity)}\n   Foto: ${productShareUrl(item.id)}`;
+    const d = cartItemDiscount(item);
+    const promo = d ? ` _(harga normal ${formatIDR(d.was * item.quantity)}, diskon ${d.pct}%)_` : '';
+    return `${index + 1}. *${item.name}* x${item.quantity} = ${formatIDR(item.price * item.quantity)}${promo}\n   Foto: ${productShareUrl(item.id)}`;
   }).join('\n');
 
   const text = `🛍️ *ORDER BARU — DY.FLORIST* 🛍️\n` +
@@ -1272,6 +1292,7 @@ function checkoutCartWhatsApp() {
                `*Daftar Produk:*\n${itemsText}\n\n` +
                `---------------------------------------------\n` +
                `*Total Harga:* ${formatIDR(subtotal)}\n` +
+               (cartSavings() > 0 ? `*Total Diskon:* ${formatIDR(cartSavings())}\n` : '') +
                `---------------------------------------------\n` +
                `*Pemesan:* ${recipient}\n` +
                `${deliveryLine}\n` +
