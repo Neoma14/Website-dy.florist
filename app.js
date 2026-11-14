@@ -704,10 +704,9 @@ function paintPhoto(canvas, photo, hex) {
 let illustrationToken = 0;
 
 function drawIllustrationSvg(art, id) {
-  const scene = SCENES[id] || SCENES.lainnya;
   art.classList.remove('is-photo');
   art.dataset.scene = id;
-  art.innerHTML = `<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${scene()}</svg>`;
+  art.innerHTML = '<div class="preview-unavailable"><p>Pratinjau tidak tersedia, hanya estimasi perhitungan. Silakan lihat katalog produk yang tersedia untuk referensi atau konsultasi langsung ke Customer Service.</p></div>';
 }
 
 function renderCustomIllustration() {
