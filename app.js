@@ -214,6 +214,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   setupSearch();
   setupCustomizer();
+  setupDeliveryForm();
+  setupFloatingWhatsApp();
+  setupCustomizerMobileBar();
   setupCartDrawer();
   setupModals();
   setupFAQ();
@@ -241,7 +244,8 @@ const CATEGORY_EMPTY_INFO = {
     icon: '🎊',
     text: 'Dekorasi lamaran, wedding car, ulang tahun, dan acara lainnya. Konsultasikan konsep Anda bersama kami.',
     wa: 'Halo dy.florist, saya ingin konsultasi dekorasi acara',
-    btn: 'Konsultasi Dekorasi via WhatsApp'
+    btn: 'Konsultasi Dekorasi via WhatsApp',
+    link: { href: 'https://www.instagram.com/dy.florist.decoration/', text: 'Lihat portofolio di Instagram @dy.florist.decoration' }
   },
   undangan: {
     icon: '💌',
@@ -275,6 +279,7 @@ function renderCatalog() {
     grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 48px 16px;">
       <p style="color: var(--color-text-muted); margin-bottom: 16px;">${info.icon} ${info.text}</p>
       <a class="btn btn-primary" href="https://wa.me/${WA_PHONE_NUMBER}?text=${encodeURIComponent(info.wa)}" target="_blank" rel="noopener noreferrer">${info.btn}</a>
+      ${info.link ? `<p style="margin-top: 14px;"><a class="consult-link" href="${info.link.href}" target="_blank" rel="noopener noreferrer">${info.link.text} →</a></p>` : ''}
     </div>`;
     return;
   }
@@ -297,7 +302,7 @@ function renderCatalog() {
 
   grid.innerHTML = filtered.map(item => `
     <article class="product-card" data-id="${esc(item.id)}">
-      <span class="product-badge-tag">${esc(item.badge)}</span>
+      ${item.badge ? `<span class="product-badge-tag">${esc(item.badge)}</span>` : ''}
       <div class="product-img-wrap">
         <img src="${esc(safeImg(item.image))}" alt="${esc(item.name)}" loading="lazy">
         <button class="product-quick-view-btn" data-click="openQuickView('${esc(item.id)}')">
@@ -307,9 +312,6 @@ function renderCatalog() {
       <div class="product-info">
         <div class="product-category-meta">${esc(item.categoryName)}</div>
         <h3 class="product-title">${esc(item.name)}</h3>
-        <div class="product-rating">
-          ★★★★★ <span>(${item.reviews})</span>
-        </div>
         <div class="product-price-row">
           <span class="product-price">${formatIDR(item.price)}</span>
           <button class="add-cart-icon-btn" data-click="addToCart('${esc(item.id)}')" title="Tambah ke Keranjang" aria-label="Tambah ${esc(item.name)} ke Keranjang">
@@ -933,7 +935,14 @@ function updateCustomizerSummary() {
   if (recipientEl) recipientEl.textContent = customizerState.recipient || '-';
 
   const total = customizerTotal();
-  if (priceEl) priceEl.textContent = total === null ? 'Via konsultasi' : formatIDR(total);
+  const priceText = total === null ? 'Via konsultasi' : formatIDR(total);
+  if (priceEl) priceEl.textContent = priceText;
+  const barName = document.getElementById('mobileBarName');
+  const barPrice = document.getElementById('mobileBarPrice');
+  const barChip = document.getElementById('mobileBarChip');
+  if (barName) barName.textContent = `${customizerState.type.name} · ${customizerState.color.name}`;
+  if (barPrice) barPrice.textContent = priceText;
+  if (barChip && HEX_RE.test(customizerState.color.hex)) barChip.style.background = customizerState.color.hex;
 }
 
 function sendCustomOrderToWhatsApp(consultOnly) {
@@ -1105,9 +1114,34 @@ function renderCartDrawer() {
 function checkoutCartWhatsApp() {
   if (cart.length === 0) return;
 
-  const recipient = document.getElementById('drawerRecipient')?.value.trim() || '(Belum diisi)';
-  const date = document.getElementById('drawerDate')?.value.trim() || '(Segera / Hari Ini)';
-  const note = document.getElementById('drawerNote')?.value.trim() || '(Tanpa ucapan)';
+  const val = (id) => (document.getElementById(id)?.value || '').trim();
+  const name = val('drawerRecipient');
+  const phone = val('drawerPhone');
+  const method = document.querySelector('input[name="drawerMethod"]:checked')?.value || 'Diantar';
+  const receiver = val('drawerReceiver');
+  const address = val('drawerAddress');
+  const day = val('drawerDate');
+  const time = val('drawerTime');
+  const note = val('drawerNote') || '(Tanpa ucapan)';
+
+  const missing = [];
+  if (!name) missing.push('nama pemesan');
+  if (!/^[0-9+\-\s]{8,20}$/.test(phone)) missing.push('nomor WhatsApp');
+  if (method === 'Diantar' && !address) missing.push('alamat pengiriman');
+  if (!day) missing.push('tanggal');
+  if (missing.length) {
+    showToast('Mohon lengkapi: ' + missing.join(', ') + '.');
+    const first = { 'nama pemesan': 'drawerRecipient', 'nomor WhatsApp': 'drawerPhone', 'alamat pengiriman': 'drawerAddress', 'tanggal': 'drawerDate' }[missing[0]];
+    document.getElementById(first)?.focus();
+    return;
+  }
+
+  const when = formatOrderDate(day, time);
+  const recipient = `${name} (${phone})`;
+  const deliveryLine = method === 'Diantar'
+    ? `*Metode:* Diantar\n*Penerima:* ${receiver || name}\n*Alamat:* ${address}`
+    : '*Metode:* Ambil di toko';
+  const date = `${when} · ${method}`;
 
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
@@ -1121,8 +1155,9 @@ function checkoutCartWhatsApp() {
                `---------------------------------------------\n` +
                `*Total Harga:* ${formatIDR(subtotal)}\n` +
                `---------------------------------------------\n` +
-               `*Nama Pemesan / Penerima:* ${recipient}\n` +
-               `*Waktu Pengiriman / Ambil:* ${date}\n` +
+               `*Pemesan:* ${recipient}\n` +
+               `${deliveryLine}\n` +
+               `*Waktu:* ${when}\n` +
                `*Pesan Kartu Ucapan:*\n"${note}"\n\n` +
                `Halo Florist dy.florist, saya ingin konfirmasi pesanan ini. Mohon info nomor rekening & ketersediaan. Terima kasih! ✨`;
 
@@ -1132,13 +1167,64 @@ function checkoutCartWhatsApp() {
     json: {
       recipient: recipient.slice(0, 120),
       scheduled: date.slice(0, 120),
-      note: note.slice(0, 500),
+      note: ((method === 'Diantar' ? `Penerima: ${receiver || name}\nAlamat: ${address}\n` : '') + `Ucapan: ${note}`).slice(0, 500),
       items: cart.map(i => ({ id: i.id, qty: i.quantity }))
     }
   }).catch(() => {});
 
   const waUrl = `https://wa.me/${WA_PHONE_NUMBER}?text=${encodeURIComponent(text)}`;
   window.open(waUrl, '_blank', 'noopener,noreferrer');
+}
+
+function formatOrderDate(day, time) {
+  const d = new Date(`${day}T${time || '00:00'}`);
+  if (Number.isNaN(d.getTime())) return `${day} ${time}`.trim();
+  const tgl = d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return time ? `${tgl}, ${time} WIB` : tgl;
+}
+
+// Form keranjang: alamat hanya untuk "Diantar"; tanggal minimal hari ini
+function setupDeliveryForm() {
+  const group = document.getElementById('drawerAddressGroup');
+  document.querySelectorAll('input[name="drawerMethod"]').forEach((r) => {
+    r.addEventListener('change', () => {
+      if (group) group.hidden = r.value !== 'Diantar' || !r.checked;
+    });
+  });
+  const dateEl = document.getElementById('drawerDate');
+  if (dateEl) {
+    const now = new Date();
+    const today = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    dateEl.min = today;
+    if (!dateEl.value) dateEl.value = today;
+  }
+}
+
+// Tombol WhatsApp melayang muncul setelah melewati hero (tidak menutupi tombol utama)
+function setupFloatingWhatsApp() {
+  const fab = document.querySelector('.floating-whatsapp');
+  if (!fab) return;
+  const update = () => fab.classList.toggle('is-hidden', window.scrollY < 480);
+  update();
+  window.addEventListener('scroll', update, { passive: true });
+}
+
+// HP: bar ringkasan Bespoke saat pratinjau tidak terlihat
+function setupCustomizerMobileBar() {
+  const bar = document.getElementById('customMobileBar');
+  const controls = document.querySelector('.customizer-controls');
+  const preview = document.getElementById('customVisualPreview');
+  if (!bar || !controls || !preview || !('IntersectionObserver' in window)) return;
+  let controlsIn = false;
+  let previewIn = false;
+  const sync = () => {
+    const show = controlsIn && !previewIn && window.innerWidth <= 900;
+    bar.hidden = !show;
+    document.body.classList.toggle('cmb-on', show);
+  };
+  new IntersectionObserver(([e]) => { controlsIn = e.isIntersecting; sync(); }).observe(controls);
+  new IntersectionObserver(([e]) => { previewIn = e.isIntersecting; sync(); }).observe(preview);
+  window.addEventListener('resize', sync, { passive: true });
 }
 
 // ==========================================
@@ -1172,17 +1258,14 @@ window.openQuickView = function(productId) {
           <img src="${esc(safeImg(product.image))}" alt="${esc(product.name)}">
         </div>
         <div class="modal-details-col">
-          <span class="modal-category">${esc(product.categoryName)} • ${esc(product.badge)}</span>
+          <span class="modal-category">${esc(product.categoryName)}${product.badge ? ' • ' + esc(product.badge) : ''}</span>
           <h2 class="modal-title">${esc(product.name)}</h2>
-          <div class="product-rating" style="margin-bottom: 12px;">
-            ★★★★★ <span>(${product.reviews} ulasan pembeli)</span>
-          </div>
           <div class="modal-price">${formatIDR(product.price)}</div>
           <p class="modal-desc">${esc(product.description)}</p>
           
           <div class="modal-meta-box">
-            <div>🌿 <strong>Kualitas:</strong> Bunga segar pilihan premium atau preserved grade A</div>
-            <div style="margin-top: 4px;">🎁 <strong>Bonus:</strong> Free Custom Greeting Card & Satin Ribbon</div>
+            <div>🌿 <strong>Dirangkai khusus:</strong> dibuat oleh florist kami sesuai pesanan Anda</div>
+            <div style="margin-top: 4px;">🎁 <strong>Gratis:</strong> kartu ucapan custom & pita satin</div>
           </div>
 
           <div style="display: flex; gap: 12px; margin-top: auto;">

@@ -2718,3 +2718,237 @@ button {
     white-space: nowrap;
   }
 }
+
+/* ==========================================
+   Cara Memesan
+   ========================================== */
+.howto-section {
+  background-color: var(--color-bg-surface);
+}
+
+.howto-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  margin: 48px 0 0;
+  padding: 0;
+  counter-reset: none;
+}
+
+.howto-card {
+  position: relative;
+  background: var(--color-bg-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 28px 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.howto-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.howto-card h3 {
+  font-size: 1.05rem;
+  margin-bottom: 8px;
+}
+
+.howto-card p {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.howto-cta {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 40px;
+}
+
+@media (max-width: 960px) {
+  .howto-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 560px) {
+  .howto-grid { grid-template-columns: 1fr; gap: 14px; }
+  .howto-card { display: grid; grid-template-columns: 40px 1fr; column-gap: 14px; padding: 18px; }
+  .howto-num { grid-row: span 2; margin: 0; }
+  .howto-cta .btn { width: 100%; }
+}
+
+/* ==========================================
+   Keranjang: data pengiriman
+   ========================================== */
+.drawer-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text-main);
+}
+
+.delivery-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.delivery-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  background: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.delivery-toggle label:has(input:checked) {
+  border-color: var(--color-primary);
+  background: #FFF0F7;
+}
+
+.delivery-toggle input {
+  accent-color: var(--color-primary);
+}
+
+.drawer-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.drawer-field-group[hidden] {
+  display: none;
+}
+
+.drawer-datetime {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 8px;
+}
+
+.drawer-order-details input[type="date"],
+.drawer-order-details input[type="time"],
+.drawer-order-details input[type="tel"] {
+  width: 100%;
+  padding: 8px 12px;
+  background: #FFF;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+
+/* ==========================================
+   Tombol WhatsApp melayang & bar ringkasan Bespoke (HP)
+   ========================================== */
+.floating-whatsapp {
+  transition: opacity 0.25s ease, transform 0.25s ease, bottom 0.25s ease;
+}
+
+.floating-whatsapp.is-hidden {
+  opacity: 0;
+  transform: translateY(16px);
+  pointer-events: none;
+}
+
+body.cmb-on .floating-whatsapp {
+  bottom: 96px;
+}
+
+.custom-mobile-bar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 998;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 10px 14px;
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.custom-mobile-bar[hidden] {
+  display: none;
+}
+
+.custom-mobile-bar .color-chip {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.cmb-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.cmb-text strong {
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cmb-text span {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.cmb-btn {
+  flex: 0 0 auto;
+  padding: 10px 14px;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 600px) {
+  .floating-wa-bubble { display: none; }
+  .floating-whatsapp { right: 16px; bottom: 16px; }
+}
+
+/* Tombol sosial berlabel jelas */
+.social-links {
+  flex-wrap: wrap;
+}
+
+.social-btn {
+  width: auto;
+  padding: 0 12px;
+  border-radius: 999px;
+}
+
+.drawer-order-details .delivery-toggle input {
+  width: auto;
+  margin: 0;
+}
+
+/* Form keranjang bisa digulir; total & tombol checkout selalu terlihat */
+.drawer-order-details {
+  max-height: 42vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
