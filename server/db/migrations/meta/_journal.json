@@ -64,6 +64,13 @@
       "when": 1794710000000,
       "tag": "0008_invitation_product",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1794720000000,
+      "tag": "0009_invitation_price",
+      "breakpoints": true
     }
   ]
 }
