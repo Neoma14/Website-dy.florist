@@ -9,3 +9,6 @@ yarn-error.log*
 .vercel
 .uploads/
 backups/
+
+# Bahan mentah undangan (hanya versi olahan di public/assets/undangan/foto yang dipakai)
+/Foto/

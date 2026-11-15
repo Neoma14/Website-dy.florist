@@ -54,7 +54,7 @@ function ornament(src, cls) {
   return h('img', { src: `/assets/undangan/${src}`, alt: '', class: `orn ${cls}`, 'aria-hidden': 'true' });
 }
 function divider() {
-  return h('img', { src: '/assets/undangan/pembatas.svg', alt: '', class: 'divider', 'aria-hidden': 'true' });
+  return h('img', { src: '/assets/undangan/foto/pembatas-emas.webp', alt: '', class: 'divider', 'aria-hidden': 'true' });
 }
 function sectionHead(eyebrow, title) {
   return [h('p', { class: 'sec-eyebrow', text: eyebrow }), h('h2', { class: 'sec-title', text: title }), divider()];
@@ -105,7 +105,7 @@ function calendarUrl(ev, d) {
 // ---------- Bagian-bagian undangan ----------
 function renderHero(d, letters) {
   return h('section', { class: 'inv-section hero wash kawung-soft', id: 'beranda' },
-    ornament('mawar-krem.svg', 'orn-tr'),
+    ornament('foto/bunga-krem.webp', 'orn-tr'),
     ornament('bunga-putih.svg', 'orn-bl'),
     h('p', { class: 'sec-eyebrow reveal', text: 'The Wedding of' }),
     h('div', { class: 'reveal' }, archFrame(d.photos?.cover, letters)),
@@ -144,7 +144,7 @@ function person(p, letter) {
 
 function renderCouple(d, letters) {
   return h('section', { class: 'inv-section wash-bottom', id: 'mempelai' },
-    ornament('mawar-emas.svg', 'orn-tr'),
+    ornament('foto/mawar-putih.webp', 'orn-tr'),
     ...sectionHead('Mempelai', 'Kedua Mempelai'),
     person(d.couple.groom, letters[0]),
     h('p', { class: 'couple-amp', 'aria-hidden': 'true', text: '&' }),
@@ -168,7 +168,7 @@ function renderStory(d) {
 function renderCountdown(d) {
   const first = (d.events || []).map((e) => Date.parse(e.startIso)).filter((n) => !Number.isNaN(n)).sort()[0];
   const box = (id, lbl) => h('div', { class: 'cd-box' }, h('span', { class: 'cd-num', id, text: '00' }), h('span', { class: 'cd-lbl', text: lbl }));
-  const sec = h('section', { class: 'inv-section navy' },
+  const sec = h('section', { class: 'inv-section navy wayang-bg' },
     h('p', { class: 'sec-eyebrow reveal', text: 'Menghitung Hari' }),
     h('h2', { class: 'sec-title reveal', text: 'Save the Date' }),
     h('div', { class: 'countdown reveal' }, box('cdD', 'Hari'), box('cdH', 'Jam'), box('cdM', 'Menit'), box('cdS', 'Detik')),
@@ -301,7 +301,7 @@ function renderRsvpWishes(d, guest) {
     toast('Terima kasih atas ucapan dan doanya');
   });
   return h('section', { class: 'inv-section', id: 'ucapan' },
-    ornament('mawar-krem.svg', 'orn-bl'),
+    ornament('foto/bunga-krem.webp', 'orn-bl'),
     ...sectionHead('Doa & Restu', 'Kehadiran & Ucapan'),
     h('p', { class: 'sec-text reveal', text: 'Mohon konfirmasi kehadiran dan kirimkan doa terbaik untuk kedua mempelai.' }),
     form,
@@ -312,8 +312,8 @@ function renderRsvpWishes(d, guest) {
 function renderClosing(d) {
   const c = d.closing || {};
   return h('section', { class: 'inv-section closing wash' },
-    ornament('mawar-emas.svg', 'orn-tl'),
-    h('img', { src: '/assets/undangan/gunungan.svg', alt: '', class: 'gunungan-lg jawa-only', 'aria-hidden': 'true' }),
+    ornament('foto/mawar-putih.webp', 'orn-tl'),
+    h('img', { src: '/assets/undangan/foto/gunungan-emas.webp', alt: '', class: 'gunungan-lg jawa-only', 'aria-hidden': 'true' }),
     c.thanks ? h('p', { class: 'sec-text reveal', text: str(c.thanks, 600) }) : null,
     c.prayer ? h('p', { class: 'hero-line reveal', text: str(c.prayer, 400) }) : null,
     c.salam ? h('p', { class: 'salam reveal', style: 'margin-top:22px', text: str(c.salam, 120) }) : null,
@@ -327,10 +327,10 @@ function renderClosing(d) {
 
 function renderSide(d, letters) {
   return h('aside', { class: 'inv-side kawung', 'aria-hidden': 'true' },
-    ornament('mawar-krem.svg', 'orn-tl'),
-    ornament('mawar-emas.svg', 'orn-br'),
+    ornament('foto/bunga-krem.webp', 'orn-tl'),
+    ornament('foto/mawar-putih.webp', 'orn-br'),
     h('div', { class: 'side-inner' },
-      h('img', { src: '/assets/undangan/gunungan.svg', alt: '', class: 'cover-gunungan jawa-only' }),
+      h('img', { src: '/assets/undangan/foto/gunungan-emas.webp', alt: '', class: 'cover-gunungan jawa-only' }),
       h('p', { class: 'script-eyebrow', text: 'The Wedding of' }),
       archFrame(d.photos?.cover, letters),
       namesLine(d, 'side-names'),

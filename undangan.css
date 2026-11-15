@@ -620,3 +620,48 @@ body:not(.jawa) .jawa-only { display: none !important; }
   border: 1px dashed var(--gold);
 }
 .demo-cta p { font-size: .86rem; color: var(--muted); margin-bottom: 12px; }
+
+/* ==========================================================================
+   Bahan foto: bunga 3D krem-emas, gunungan emas, pembatas emas, wayang, pendopo
+   ========================================================================== */
+.inv-cover {
+  background:
+    radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.75) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(253,250,245,.9) 0%, rgba(253,250,245,.86) 55%, rgba(246,230,223,.92) 100%),
+    url('/assets/undangan/foto/pendopo.webp') center 30% / cover no-repeat,
+    var(--ivory);
+}
+.inv-cover::before { display: none; }
+
+/* Bunga 3D: diletakkan miring di sudut, dengan bayangan lembut */
+.orn { filter: drop-shadow(0 10px 18px rgba(142,116,64,.18)); }
+.orn-tl { top: -60px; left: -70px; width: 250px; transform: rotate(150deg); }
+.orn-br { bottom: -64px; right: -70px; width: 260px; transform: rotate(-8deg); }
+.inv-section > .orn-tr { width: 170px; top: -64px; right: -70px; transform: rotate(-150deg) scaleX(-1); opacity: .95; }
+.inv-section > .orn-tl { width: 170px; top: -64px; left: -72px; transform: rotate(150deg); opacity: .95; }
+.inv-section > .orn-bl { width: 160px; bottom: -66px; left: -70px; transform: rotate(20deg); opacity: .9; }
+.hero > .orn-bl { width: 140px; bottom: -70px; left: -66px; opacity: .85; }
+
+.cover-gunungan { width: 46px; filter: drop-shadow(0 6px 14px rgba(142,116,64,.35)); }
+.closing .gunungan-lg { width: 78px; }
+.divider { width: 210px; }
+
+/* Save the Date: ilustrasi wayang di balik lapisan navy */
+.inv-section.wayang-bg {
+  background:
+    linear-gradient(180deg, rgba(23,32,56,.80) 0%, rgba(23,32,56,.70) 45%, rgba(23,32,56,.92) 100%),
+    url('/assets/undangan/foto/wayang.webp') center / cover no-repeat,
+    var(--navy-deep);
+}
+
+@media (min-width: 960px) {
+  .inv-side {
+    background:
+      radial-gradient(70% 60% at 50% 42%, rgba(253,250,245,.94) 0%, rgba(253,250,245,.82) 55%, rgba(246,230,223,.9) 100%),
+      url('/assets/undangan/foto/pendopo.webp') center / cover no-repeat,
+      var(--cream);
+  }
+  .inv-side .orn-tl { width: 330px; top: -70px; left: -80px; }
+  .inv-side .orn-br { width: 340px; bottom: -80px; right: -80px; }
+  .inv-side .cover-gunungan { width: 56px; }
+}
