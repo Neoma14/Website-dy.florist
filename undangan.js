@@ -73,7 +73,7 @@ function archFrame(photo, letters, cls = '') {
   if (src) {
     inner.append(h('img', { src, alt: '', class: 'photo', loading: 'lazy' }));
   } else {
-    inner.append(h('img', { src: '/assets/undangan/candi-siluet.svg', alt: '', class: 'candi jawa-only', 'aria-hidden': 'true' }));
+    inner.classList.add('no-photo');
     const mono = h('div', { class: 'monogram', 'aria-hidden': 'true' });
     if (letters.length === 2) mono.append(letters[0], h('span', { class: 'amp', text: '&' }), letters[1]);
     else mono.append(letters[0]);
@@ -106,7 +106,7 @@ function calendarUrl(ev, d) {
 function renderHero(d, letters) {
   return h('section', { class: 'inv-section hero wash kawung-soft', id: 'beranda' },
     ornament('foto/bunga-krem.webp', 'orn-tr'),
-    ornament('bunga-putih.svg', 'orn-bl'),
+    ornament('foto/mawar-putih.webp', 'orn-bl'),
     h('p', { class: 'sec-eyebrow reveal', text: 'The Wedding of' }),
     h('div', { class: 'reveal' }, archFrame(d.photos?.cover, letters)),
     h('div', { class: 'reveal' }, namesLine(d, 'hero-names')),
@@ -119,7 +119,7 @@ function renderGreeting(d) {
   const g = d.greeting || {};
   const q = g.quote;
   return h('section', { class: 'inv-section' },
-    ornament('garis-emas.svg', 'orn-vine'),
+    ornament('foto/bunga-krem.webp', 'orn-tr'),
     g.salam ? h('p', { class: 'salam reveal', text: str(g.salam, 120) }) : null,
     divider(),
     g.opening ? h('p', { class: 'sec-text reveal', text: str(g.opening, 800) }) : null,
@@ -216,7 +216,7 @@ function eventCard(ev, d, i) {
 
 function renderEvents(d) {
   return h('section', { class: 'inv-section wash', id: 'acara' },
-    ornament('bunga-putih.svg', 'orn-vine'),
+    ornament('foto/mawar-putih.webp', 'orn-tl'),
     ...sectionHead('Waktu & Tempat', 'Rangkaian Acara'),
     (d.events || []).slice(0, 4).map((ev, i) => eventCard(ev, d, i)),
   );
@@ -320,7 +320,7 @@ function renderClosing(d) {
     h('p', { class: 'sec-text reveal', style: 'margin-top:24px', text: 'Kami yang berbahagia,' }),
     h('p', { class: 'closing-names reveal' }, str(d.couple.groom.nickname, 40), h('span', { class: 'amp', text: ' & ' }), str(d.couple.bride.nickname, 40)),
     c.family ? h('p', { class: 'closing-family reveal', text: str(c.family, 200) }) : null,
-    h('img', { src: '/assets/undangan/candi-siluet.svg', alt: '', class: 'candi-wide jawa-only', 'aria-hidden': 'true' }),
+    h('div', { class: 'closing-photo jawa-only', 'aria-hidden': 'true' }),
     h('p', { class: 'credit' }, 'Undangan digital oleh ', h('a', { href: '/', target: '_blank', rel: 'noopener', text: 'dy.florist' })),
   );
 }
