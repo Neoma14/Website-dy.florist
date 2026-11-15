@@ -225,10 +225,14 @@ test('halaman bagikan produk: tag Open Graph berisi foto, teks di-escape, id ane
   assert.match(html, /<meta property="og:image" content="https:\/\/www\.dyflorist\.site\/assets\/logo\.png">/);
   assert.match(html, /Uji &quot;Share&quot; &lt;b&gt;/);
   assert.ok(!html.includes('<b>'));
-  assert.match(html, new RegExp(`url=/katalog\\?produk=${id}`));
+  assert.match(html, new RegExp(`rel="canonical" href="[^"]*/katalog\\?produk=${id}"`));
   // /produk/:id lewat handler Vercel diarahkan ke halaman yang sama
   const { default: handler } = await import('./handler');
-  const viaHandler = await handler.fetch(new Request(`http://localhost/produk/${id}`, { headers: { 'x-forwarded-for': newIp() } }));
+  // pengunjung biasa: langsung dialihkan ke katalog (302), pratinjau OG hanya untuk bot
+  const human = await handler.fetch(new Request(`http://localhost/produk/${id}`, { headers: { 'x-forwarded-for': newIp() }, redirect: 'manual' }));
+  assert.equal(human.status, 302);
+  assert.equal(human.headers.get('location'), `/katalog?produk=${id}`);
+  const viaHandler = await handler.fetch(new Request(`http://localhost/produk/${id}`, { headers: { 'x-forwarded-for': newIp(), 'user-agent': 'WhatsApp/2.23' } }));
   assert.equal(viaHandler.status, 200);
   assert.match(await viaHandler.text(), /og:image/);
   assert.equal((await call('/api/share/tidak-ada')).status, 404);
@@ -512,6 +516,8 @@ test('undangan: draft hanya bisa dilihat admin, terbit publik, arsip 410, data p
   assert.equal((await call(`/api/admin/invitations/${id}/status`, { method: 'POST', cookie, ...json({ status: 'terbit' }) })).status, 200);
   const pub = await call('/api/invitations/bima-sekar');
   assert.equal(pub.status, 200);
+  assert.match(pub.headers.get('cache-control') ?? '', /s-maxage=10/); // aman di-cache CDN saat tamu banyak
+  assert.equal(preview.headers.get('cache-control'), 'no-store');
   const raw = await pub.text();
   const d = JSON.parse(raw);
   assert.equal(d.couple.groom.nickname, 'Bima');
@@ -569,10 +575,36 @@ test('ucapan tamu: tersimpan, tampil, statistik kehadiran, moderasi, dan perlind
   assert.ok(!d.wishes.items.some((w: any) => w.name === 'Tamu Tiga'));
   assert.equal(d.rsvp.stats.ragu, 1);
 
-  // Rate limit: maks 5 ucapan / 10 menit per IP per undangan
+  // Rate limit: maks 30 ucapan / 10 menit per IP per undangan (tamu satu gedung berbagi WiFi)
   const ip = newIp();
-  for (let i = 0; i < 5; i++) assert.equal((await wish('ucapan-uji', { name: 'Spam', message: `ke-${i}`, attendance: 'hadir' }, ip)).status, 200);
-  assert.equal((await wish('ucapan-uji', { name: 'Spam', message: 'ke-6', attendance: 'hadir' }, ip)).status, 429);
+  for (let i = 0; i < 30; i++) assert.equal((await wish('ucapan-uji', { name: 'Tamu WiFi', message: `ke-${i}`, attendance: 'hadir' }, ip)).status, 200, `ucapan ke-${i + 1} harus diterima`);
+  assert.equal((await wish('ucapan-uji', { name: 'Spam', message: 'ke-31', attendance: 'hadir' }, ip)).status, 429);
+  // IP lain di undangan yang sama tidak terpengaruh
+  assert.equal((await wish('ucapan-uji', { name: 'Tamu Lain', message: 'halo', attendance: 'hadir' })).status, 200);
+});
+
+test('tanggal & jam di undangan selalu mengikuti tanggal acara (tidak bisa basi)', async () => {
+  const cookie = await loginUndangan();
+  const id = await createInvitation(cookie, 'tanggal-uji');
+  const stale = { ...FILLED, dateLabel: 'Senin, 1 Januari 2020', events: [{ title: 'Akad', startIso: '2027-09-05T08:00:00+07:00', endIso: '2027-09-05T10:00:00+07:00', timeLabel: 'basi', dateLabel: 'basi' }] };
+  let out = await (await saveInvitation(cookie, id, 'tanggal-uji', stale)).json() as any;
+  assert.equal(out.data.dateLabel, 'Minggu, 5 September 2027');
+  assert.equal(out.data.events[0].dateLabel, 'Minggu, 5 September 2027');
+  assert.equal(out.data.events[0].timeLabel, '08.00 – 10.00 WIB');
+  // Ganti tanggal: sampul ikut berubah. Dua acara -> sampul memakai yang paling awal.
+  out = await (await saveInvitation(cookie, id, 'tanggal-uji', {
+    ...stale,
+    events: [
+      { title: 'Resepsi', startIso: '2027-12-25T11:00:00+08:00' },
+      { title: 'Akad', startIso: '2027-12-24T08:30:00+08:00', endIso: '2027-12-24T09:30:00+08:00' },
+    ],
+  })).json() as any;
+  assert.equal(out.data.dateLabel, 'Jumat, 24 Desember 2027');
+  assert.equal(out.data.events[1].timeLabel, '08.30 – 09.30 WITA');
+  assert.equal(out.data.events[0].timeLabel, '11.00 – Selesai WITA');
+  // Isian manual hanya dipakai bila belum ada acara bertanggal
+  out = await (await saveInvitation(cookie, id, 'tanggal-uji', { ...FILLED, dateLabel: 'Minggu depan', events: [{ title: 'Akad' }] })).json() as any;
+  assert.equal(out.data.dateLabel, 'Minggu depan');
 });
 
 test('pratinjau link undangan (WhatsApp): judul nama mempelai, nama tamu di-escape, draft tidak bocor', async () => {
@@ -587,8 +619,15 @@ test('pratinjau link undangan (WhatsApp): judul nama mempelai, nama tamu di-esca
   html = await res.text();
   assert.ok(html.includes('og:title" content="The Wedding of Bima &amp; Sekar"'));
   assert.ok(html.includes('og:image" content="https://www.dyflorist.site/assets/undangan/og-undangan.jpg"'));
-  assert.ok(!html.includes('<script>') && html.includes('&lt;script&gt;'));
+  assert.ok(!html.includes('<script>') && !html.includes('&lt;'), 'karakter berbahaya dibuang dari nama tamu');
   assert.ok(html.includes('Kepada Yth.'));
+  // Teks yang mirip tautan/alamat web dibuang seluruhnya (anti pesan palsu di kartu pratinjau)
+  for (const bad of ['Klik https://evil.example', 'Hadiah di promo.shop', 'kirim@evil.com']) {
+    const h = await (await call('/api/invitation-share/og-uji?to=' + encodeURIComponent(bad))).text();
+    assert.ok(!/evil|promo|Klik|Hadiah/.test(h) && !h.includes('Kepada Yth.'), `"${bad}" tidak boleh tampil`);
+  }
+  const ok = await (await call('/api/invitation-share/og-uji?to=' + encodeURIComponent('Bapak Budi Santoso & Keluarga'))).text();
+  assert.ok(ok.includes('Kepada Yth. Bapak Budi Santoso &amp; Keluarga'));
   const demo = await (await call('/api/invitation-share/demo')).text();
   assert.ok(demo.includes('Rizky &amp; Nadia'));
 });

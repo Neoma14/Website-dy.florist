@@ -42,6 +42,15 @@
   ],
   "headers": [
     {
+      "source": "/undangan/:slug",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
       "source": "/isi/:token",
       "headers": [
         {

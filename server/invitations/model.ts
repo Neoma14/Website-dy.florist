@@ -44,6 +44,21 @@ function person(v: unknown) {
   };
 }
 
+// ---------- Label tanggal & jam dari nilai ISO (tanggal sesuai yang diisi admin, tanpa konversi zona waktu) ----------
+const ZONE_BY_OFFSET: Record<string, string> = { '+07:00': 'WIB', '+08:00': 'WITA', '+09:00': 'WIT' };
+export function dateLabelOf(isoStr: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T/.exec(isoStr);
+  if (!m) return '';
+  return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12)).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+export function timeLabelOf(start: string, end: string): string {
+  const m = /T(\d{2}):(\d{2})(?::\d{2})?(Z|[+-]\d{2}:\d{2})$/.exec(start);
+  if (!m) return '';
+  const zone = m[3] === 'Z' ? 'UTC' : ZONE_BY_OFFSET[m[3]] ?? `UTC${m[3]}`;
+  const e = /T(\d{2}):(\d{2})/.exec(end);
+  return `${m[1]}.${m[2]} – ${e ? `${e[1]}.${e[2]}` : 'Selesai'} ${zone}`;
+}
+
 /** Merapikan isi undangan dari admin. Tidak pernah melempar error: nilai yang tidak sah dikosongkan. */
 export function normalizeInvitationData(input: unknown) {
   const d = obj(input);
@@ -58,9 +73,29 @@ export function normalizeInvitationData(input: unknown) {
   const wishes = obj(d.wishes);
   const theme = obj(d.theme);
   const maxGuests = Number(rsvp.maxGuests);
+  const events = arr(d.events, 4).map((v, i) => {
+    const e = obj(v);
+    const maps = line(e.mapsUrl, 300);
+    const startIso = iso(e.startIso);
+    const endIso = iso(e.endIso);
+    return {
+      id: `acara${i + 1}`,
+      title: line(e.title, 40),
+      startIso,
+      endIso,
+      // Tanggal & jam selalu dihitung dari startIso/endIso, jadi tidak pernah berbeda dengan tanggal yang dipilih
+      dateLabel: dateLabelOf(startIso) || line(e.dateLabel, 60),
+      timeLabel: timeLabelOf(startIso, endIso) || line(e.timeLabel, 60),
+      venueName: line(e.venueName, 100),
+      address: para(e.address, 200),
+      mapsUrl: MAPS_RE.test(maps) ? maps : '',
+    };
+  }).filter((e) => e.title);
+  // Tanggal di sampul = tanggal acara paling awal (isian manual hanya dipakai bila belum ada acara bertanggal)
+  const dated = events.filter((e) => e.startIso).sort((a, b) => Date.parse(a.startIso) - Date.parse(b.startIso));
   return {
     couple: { groom: person(couple.groom), bride: person(couple.bride) },
-    dateLabel: line(d.dateLabel, 60),
+    dateLabel: dated[0]?.dateLabel || line(d.dateLabel, 60),
     heroLine: para(d.heroLine, 200),
     greeting: {
       salam: line(greeting.salam, 120),
@@ -68,21 +103,7 @@ export function normalizeInvitationData(input: unknown) {
       quote: { arabic: para(quote.arabic, 600), text: para(quote.text, 600), source: line(quote.source, 60) },
     },
     eventsIntro: para(d.eventsIntro, 300),
-    events: arr(d.events, 4).map((v, i) => {
-      const e = obj(v);
-      const maps = line(e.mapsUrl, 300);
-      return {
-        id: `acara${i + 1}`,
-        title: line(e.title, 40),
-        startIso: iso(e.startIso),
-        endIso: iso(e.endIso),
-        dateLabel: line(e.dateLabel, 60),
-        timeLabel: line(e.timeLabel, 60),
-        venueName: line(e.venueName, 100),
-        address: para(e.address, 200),
-        mapsUrl: MAPS_RE.test(maps) ? maps : '',
-      };
-    }).filter((e) => e.title),
+    events,
     story: arr(d.story, 8).map((v) => {
       const s = obj(v);
       return { title: line(s.title, 80), period: line(s.period, 30), body: para(s.body, 1200) };

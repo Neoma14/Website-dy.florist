@@ -122,6 +122,15 @@ export async function publicInvitation(row: InvitationRow, preview: boolean) {
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 const absolute = (u: string) => (u.startsWith('/') ? SITE_URL + u : u);
 
+/**
+ * Nama tamu untuk kartu pratinjau link. Hanya huruf, angka, spasi, dan tanda baca nama; teks yang mirip alamat web
+ * dibuang, supaya link ber-domain dyflorist.site tidak bisa dipakai menampilkan pesan/tautan palsu di pratinjau WhatsApp.
+ */
+export function cleanGuestName(raw: string): string {
+  if (/https?|www\.|\.(com|id|net|org|co|me|ly|xyz|top|site|link|app|shop)\b|@/i.test(raw)) return '';
+  return raw.normalize('NFKC').replace(/[^\p{L}\p{N} .,&'’-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 40);
+}
+
 export async function invitationShareHtml(slug: string, guest: string): Promise<{ status: number; html: string }> {
   let d: Pick<InvitationData, 'couple' | 'dateLabel' | 'photos'> | null = null;
   if (slug === 'demo') d = demoInvitation();

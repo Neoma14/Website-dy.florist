@@ -146,8 +146,11 @@ export async function rateLimited(bucket: string, ipHash: string, max: number, w
       gt(schema.rateEvents.createdAt, since)));
   if (Number(row.n) >= max) return true;
   await db.insert(schema.rateEvents).values({ bucket, ipHash });
-  await db.delete(schema.rateEvents)
-    .where(lt(schema.rateEvents.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000)));
+  // Pembersihan data lama cukup sesekali (±2% permintaan): hemat satu kueri tiap ucapan saat tamu banyak
+  if (Math.random() < 0.02) {
+    await db.delete(schema.rateEvents)
+      .where(lt(schema.rateEvents.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000)));
+  }
   return false;
 }
 

@@ -17,17 +17,35 @@
   <meta property="og:image" content="https://www.dyflorist.site/assets/hero.jpg">
   <meta name="twitter:card" content="summary_large_image">
 
-  <!-- Google Fonts -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Florist",
+    "name": "dy.florist",
+    "url": "https://www.dyflorist.site/",
+    "image": "https://www.dyflorist.site/assets/hero.jpg",
+    "logo": "https://www.dyflorist.site/assets/logo-web.png",
+    "description": "Buket bunga, hampers & kado personal, kerajinan, dekorasi acara, dan undangan digital di Kota Metro, Lampung.",
+    "telephone": "+6288267108077",
+    "address": { "@type": "PostalAddress", "addressLocality": "Kota Metro", "addressRegion": "Lampung", "addressCountry": "ID" },
+    "areaServed": "Kota Metro, Lampung",
+    "sameAs": [
+      "https://www.instagram.com/dy.florist.metro",
+      "https://www.instagram.com/dy.florist.decoration",
+      "https://www.tiktok.com/@dy.florist.parcel"
+    ]
+  }
+  </script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <script type="module" crossorigin src="/assets/main-1joLR0zt.js"></script>
+  <script type="module" crossorigin src="/assets/main-yGFFlt6P.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-P2Xu9kJm.js">
-  <link rel="stylesheet" crossorigin href="/assets/main-gdQuMeEK.css">
+  <link rel="stylesheet" crossorigin href="/assets/main-FYbcVBvy.css">
 </head>
 <body>
-  <!-- Top Announcement Bar -->
   <div class="top-announcement">
     <div class="container announcement-inner">
       <span>✨ <strong>Same-Day Delivery</strong> untuk pesanan sebelum jam 15:00 WIB • Free Kartu Ucapan & Pita Elegan</span>
@@ -35,7 +53,6 @@
     </div>
   </div>
 
-  <!-- Header / Navigation -->
   <header class="site-header" id="header">
     <div class="container header-inner">
       <a href="#" class="brand-logo" aria-label="dy.florist Beranda">
@@ -80,7 +97,6 @@
   </header>
 
   <main>
-    <!-- Hero Section -->
     <section class="hero-section" id="home">
       <div class="hero-bg-overlay"></div>
       <div class="hero-bg-image" style="background-image: url('/assets/hero.jpg');"></div>
@@ -108,7 +124,6 @@
           </a>
         </div>
 
-        <!-- Trust Badges -->
         <div class="hero-features">
           <div class="feature-item">
             <div class="feature-icon">💐</div>
@@ -135,7 +150,6 @@
       </div>
     </section>
 
-    <!-- 4 Pillars Section -->
     <section class="section pillars-section" id="pillars">
       <div class="container">
         <div class="section-header text-center">
@@ -147,7 +161,6 @@
         </div>
 
         <div class="pillars-grid">
-          <!-- Pillar 1: Florist -->
           <div class="pillar-card" data-category="segar">
             <div class="pillar-img-wrap">
               <img src="/assets/bouquet.jpg" alt="dy.florist Rangkaian Bunga" loading="lazy">
@@ -163,7 +176,6 @@
             </div>
           </div>
 
-          <!-- Pillar 2: Gift -->
           <div class="pillar-card" data-category="gift_craft">
             <div class="pillar-img-wrap">
               <img src="/assets/gift.jpg" alt="dy.florist Gift & Hampers" loading="lazy">
@@ -179,7 +191,6 @@
             </div>
           </div>
 
-          <!-- Pillar 3: Craft -->
           <div class="pillar-card" data-category="gift_craft">
             <div class="pillar-img-wrap">
               <img src="/assets/dome.jpg" alt="dy.florist Craft & Preserved" loading="lazy">
@@ -195,7 +206,6 @@
             </div>
           </div>
 
-          <!-- Pillar 4: Dekorasi -->
           <div class="pillar-card" data-category="dekorasi">
             <div class="pillar-img-wrap">
               <img src="/assets/dekorasi.svg" alt="Dekorasi dy.florist" loading="lazy">
@@ -214,7 +224,6 @@
       </div>
     </section>
 
-    <!-- Product Catalog Section -->
     <section class="section catalog-section" id="catalog">
       <div class="container">
         <div class="section-header text-center">
@@ -226,7 +235,6 @@
           </p>
         </div>
 
-        <!-- Filter & Search Controls -->
         <div class="catalog-controls">
           <div class="filter-tabs" id="filterTabs">
             <button class="tab-btn active" data-filter="all" data-click="selectCategory('all')">Semua Produk</button>
@@ -243,10 +251,8 @@
           </a>
         </div>
 
-        <!-- Product Grid -->
         <div class="products-grid" id="productsGrid">
-          <!-- Populated by JavaScript -->
-        </div>
+          </div>
 
         <div class="catalog-empty" id="catalogEmpty" style="display: none;">
           <p>Tidak ada produk yang sesuai dengan pencarian Anda. Coba kata kunci lain atau hubungi florist kami.</p>
@@ -255,7 +261,6 @@
       </div>
     </section>
 
-    <!-- Interactive Bespoke Customizer Section -->
     <section class="section customizer-section" id="customizer">
       <div class="container">
         <div class="customizer-card">
@@ -268,15 +273,12 @@
           </div>
 
           <div class="customizer-grid">
-            <!-- Customizer Controls -->
             <div class="customizer-controls">
-              <!-- Step 1: Jenis Gift / Produk -->
               <div class="step-group">
                 <label class="step-title">1. Pilih Jenis Gift / Produk</label>
                 <div class="options-pill-grid" id="customBaseOptions"></div>
               </div>
 
-              <!-- Step 2: Warna -->
               <div class="step-group">
                 <label class="step-title">2. Pilih Warna</label>
                 <div class="color-palette-options" id="customColorOptions"></div>
@@ -288,7 +290,6 @@
                 <div class="selected-meta" id="selectedColorLabel">Warna Terpilih: <strong>Magenta Rose</strong></div>
               </div>
 
-              <!-- Step 3: Add-ons -->
               <div class="step-group">
                 <label class="step-title">3. Tambahan Spesial (Opsional)</label>
                 <div class="checkbox-addons-grid" id="customAddonsOptions">
@@ -315,7 +316,6 @@
                 </div>
               </div>
 
-              <!-- Step 4: Card Message -->
               <div class="step-group">
                 <label class="step-title" for="customCardMsg">4. Ucapan Kartu & Nama Penerima (Free)</label>
                 <input type="text" id="customRecipientName" class="input-field" placeholder="Nama Penerima (misal: Salsabila)" style="margin-bottom: 8px;">
@@ -323,7 +323,6 @@
               </div>
             </div>
 
-            <!-- Customizer Live Preview Box -->
             <div class="customizer-preview-box">
               <div class="preview-card-sticky">
                 <div class="preview-badge">Live Summary</div>
@@ -364,7 +363,6 @@
       </div>
     </section>
 
-    <!-- Cara Pesan -->
     <section class="section howto-section" id="cara-pesan">
       <div class="container">
         <div class="section-header text-center">
@@ -405,7 +403,6 @@
       </div>
     </section>
 
-    <!-- FAQ Section -->
     <section class="section faq-section" id="faq">
       <div class="container faq-container">
         <div class="section-header text-center">
@@ -457,7 +454,6 @@
       </div>
     </section>
 
-    <!-- Location & Contact Section -->
     <section class="section contact-section" id="contact">
       <div class="container">
         <div class="contact-card">
@@ -522,7 +518,6 @@
     </section>
   </main>
 
-  <!-- Footer -->
   <footer class="site-footer">
     <div class="container footer-top">
       <div class="footer-col brand-col">
@@ -585,7 +580,6 @@
     </div>
   </footer>
 
-  <!-- Slide-Over Shopping Cart Drawer -->
   <div class="cart-drawer-overlay" id="cartOverlay"></div>
   <aside class="cart-drawer" id="cartDrawer" aria-label="Keranjang Belanja">
     <div class="drawer-header">
@@ -597,7 +591,6 @@
     </div>
 
     <div class="drawer-body" id="drawerBody">
-      <!-- Items dynamically injected -->
       <div class="empty-cart-state" id="emptyCartState">
         <div class="empty-icon">💐</div>
         <p>Keranjang pesanan Anda masih kosong.</p>
@@ -605,7 +598,6 @@
       </div>
 
       <div class="cart-items-list" id="cartItemsList"></div>
-      <!-- Order Recipient & Card Input in Drawer -->
       <div class="drawer-order-details" id="drawerOrderDetails" style="display: none;">
         <label for="drawerRecipient">Nama Pemesan *</label>
         <input type="text" id="drawerRecipient" maxlength="60" autocomplete="name" placeholder="Nama Anda">
@@ -613,32 +605,37 @@
         <label for="drawerPhone">No. WhatsApp Pemesan *</label>
         <input type="tel" id="drawerPhone" maxlength="20" inputmode="tel" autocomplete="tel" placeholder="08xx xxxx xxxx">
 
-        <span class="drawer-label">Metode Penerimaan</span>
-        <div class="delivery-toggle" role="radiogroup" aria-label="Metode penerimaan">
-          <label><input type="radio" name="drawerMethod" value="Diantar" checked> Diantar</label>
-          <label><input type="radio" name="drawerMethod" value="Ambil di toko"> Ambil di toko</label>
+        <div id="drawerDeliveryGroup" class="drawer-contents">
+          <span class="drawer-label">Metode Penerimaan</span>
+          <div class="delivery-toggle" role="radiogroup" aria-label="Metode penerimaan">
+            <label><input type="radio" name="drawerMethod" value="Diantar" checked> Diantar</label>
+            <label><input type="radio" name="drawerMethod" value="Ambil di toko"> Ambil di toko</label>
+          </div>
+
+          <div id="drawerAddressGroup" class="drawer-field-group">
+            <label for="drawerReceiver">Nama Penerima</label>
+            <input type="text" id="drawerReceiver" maxlength="60" placeholder="Kosongkan jika sama dengan pemesan">
+            <label for="drawerAddress">Alamat Pengiriman *</label>
+            <textarea id="drawerAddress" rows="2" maxlength="200" placeholder="Jalan, nomor, kelurahan, patokan"></textarea>
+          </div>
+
+          <label for="drawerDate">Tanggal & Jam *</label>
+          <div class="drawer-datetime">
+            <input type="date" id="drawerDate">
+            <input type="time" id="drawerTime" value="10:00" aria-label="Jam">
+          </div>
         </div>
 
-        <div id="drawerAddressGroup" class="drawer-field-group">
-          <label for="drawerReceiver">Nama Penerima</label>
-          <input type="text" id="drawerReceiver" maxlength="60" placeholder="Kosongkan jika sama dengan pemesan">
-          <label for="drawerAddress">Alamat Pengiriman *</label>
-          <textarea id="drawerAddress" rows="2" maxlength="200" placeholder="Jalan, nomor, kelurahan, patokan"></textarea>
-        </div>
-
-        <label for="drawerDate">Tanggal & Jam *</label>
-        <div class="drawer-datetime">
-          <input type="date" id="drawerDate">
-          <input type="time" id="drawerTime" value="10:00" aria-label="Jam">
-        </div>
-
-        <label for="drawerRequest">Keterangan / Request Khusus (Opsional)</label>
+        <label for="drawerRequest" id="drawerRequestLabel">Keterangan / Request Khusus (Opsional)</label>
         <textarea id="drawerRequest" rows="2" maxlength="300" placeholder="Contoh: warna wrapping biru, pita gold, ukuran lebih besar, ganti jenis bunga"></textarea>
 
-        <label for="drawerNote">Pesan Kartu Ucapan (Free)</label>
-        <textarea id="drawerNote" rows="3" maxlength="300" placeholder="Tuliskan ucapan kartu..."></textarea>
+        <div id="drawerCardGroup" class="drawer-contents">
+          <label for="drawerNote">Pesan Kartu Ucapan (Free)</label>
+          <textarea id="drawerNote" rows="3" maxlength="300" placeholder="Tuliskan ucapan kartu..."></textarea>
+        </div>
 
-        <p class="drawer-price-note">Harga dapat lebih tinggi atau lebih rendah jika ada request khusus atau menyesuaikan ketersediaan stok. Harga final dikonfirmasi oleh admin via WhatsApp.</p>
+        <p class="drawer-price-note" id="drawerPriceNote">Harga dapat lebih tinggi atau lebih rendah jika ada request khusus atau menyesuaikan ketersediaan stok. Harga final dikonfirmasi oleh admin via WhatsApp.</p>
+        <p class="drawer-price-note" id="drawerDigitalNote" hidden>💌 Undangan digital dikerjakan tim dy.florist setelah pembayaran dikonfirmasi. Data mempelai (nama, acara, foto) Anda isi lewat formulir online yang kami kirim lewat WhatsApp. Tidak ada pengiriman fisik.</p>
       </div>
     </div>
 
@@ -661,17 +658,14 @@
     </div>
   </aside>
 
-  <!-- Product Quick View Modal -->
   <div class="modal-overlay" id="quickViewOverlay">
     <div class="modal-content" id="quickViewModal">
       <button class="modal-close-btn" id="closeQuickViewBtn">&times;</button>
       <div class="modal-body" id="quickViewBody">
-        <!-- Content injected dynamically -->
-      </div>
+        </div>
     </div>
   </div>
 
-  <!-- Admin Portal Modal & Dashboard -->
   <div class="modal-overlay admin-modal-overlay" id="adminModalOverlay">
     <div class="admin-modal-container" id="adminModalContainer">
       <div class="admin-modal-header">
@@ -682,7 +676,6 @@
         <button class="modal-close-btn" id="closeAdminBtn" aria-label="Tutup Admin Modal">&times;</button>
       </div>
 
-      <!-- Login Screen View -->
       <div class="admin-view" id="adminLoginView">
         <div class="admin-login-card">
           <div class="admin-login-icon">🔐</div>
@@ -705,7 +698,6 @@
         </div>
       </div>
 
-      <!-- Dashboard View (Shown after authentication) -->
       <div class="admin-view" id="adminDashboardView" style="display: none;">
         <div class="admin-nav-tabs">
           <button class="admin-tab active" data-tab="products" data-click="switchAdminTab('products')">📦 Kelola Produk (<span id="adminTotalCount">0</span>)</button>
@@ -738,8 +730,7 @@
                 </tr>
               </thead>
               <tbody id="adminProductsTableBody">
-                <!-- Injected via JS -->
-              </tbody>
+                </tbody>
             </table>
           </div>
         </div>
@@ -873,8 +864,7 @@
                 </tr>
               </thead>
               <tbody id="adminOrdersTableBody">
-                <!-- Injected via JS -->
-              </tbody>
+                </tbody>
             </table>
           </div>
         </div>
@@ -882,10 +872,8 @@
     </div>
   </div>
 
-  <!-- Toast Notification Element -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <!-- Floating Quick WhatsApp Widget -->
   <div class="custom-mobile-bar" id="customMobileBar" hidden>
     <i class="color-chip" id="mobileBarChip"></i>
     <div class="cmb-text">

@@ -207,6 +207,19 @@ function person(v) {
     instagram: IG_RE.test(ig) ? ig : ""
   };
 }
+var ZONE_BY_OFFSET = { "+07:00": "WIB", "+08:00": "WITA", "+09:00": "WIT" };
+function dateLabelOf(isoStr) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T/.exec(isoStr);
+  if (!m) return "";
+  return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12)).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+}
+function timeLabelOf(start, end) {
+  const m = /T(\d{2}):(\d{2})(?::\d{2})?(Z|[+-]\d{2}:\d{2})$/.exec(start);
+  if (!m) return "";
+  const zone = m[3] === "Z" ? "UTC" : ZONE_BY_OFFSET[m[3]] ?? `UTC${m[3]}`;
+  const e = /T(\d{2}):(\d{2})/.exec(end);
+  return `${m[1]}.${m[2]} \u2013 ${e ? `${e[1]}.${e[2]}` : "Selesai"} ${zone}`;
+}
 function normalizeInvitationData(input) {
   const d = obj(input);
   const couple = obj(d.couple);
@@ -220,9 +233,28 @@ function normalizeInvitationData(input) {
   const wishes = obj(d.wishes);
   const theme = obj(d.theme);
   const maxGuests = Number(rsvp.maxGuests);
+  const events = arr(d.events, 4).map((v, i) => {
+    const e = obj(v);
+    const maps = line(e.mapsUrl, 300);
+    const startIso = iso(e.startIso);
+    const endIso = iso(e.endIso);
+    return {
+      id: `acara${i + 1}`,
+      title: line(e.title, 40),
+      startIso,
+      endIso,
+      // Tanggal & jam selalu dihitung dari startIso/endIso, jadi tidak pernah berbeda dengan tanggal yang dipilih
+      dateLabel: dateLabelOf(startIso) || line(e.dateLabel, 60),
+      timeLabel: timeLabelOf(startIso, endIso) || line(e.timeLabel, 60),
+      venueName: line(e.venueName, 100),
+      address: para(e.address, 200),
+      mapsUrl: MAPS_RE.test(maps) ? maps : ""
+    };
+  }).filter((e) => e.title);
+  const dated = events.filter((e) => e.startIso).sort((a, b) => Date.parse(a.startIso) - Date.parse(b.startIso));
   return {
     couple: { groom: person(couple.groom), bride: person(couple.bride) },
-    dateLabel: line(d.dateLabel, 60),
+    dateLabel: dated[0]?.dateLabel || line(d.dateLabel, 60),
     heroLine: para(d.heroLine, 200),
     greeting: {
       salam: line(greeting.salam, 120),
@@ -230,21 +262,7 @@ function normalizeInvitationData(input) {
       quote: { arabic: para(quote.arabic, 600), text: para(quote.text, 600), source: line(quote.source, 60) }
     },
     eventsIntro: para(d.eventsIntro, 300),
-    events: arr(d.events, 4).map((v, i) => {
-      const e = obj(v);
-      const maps = line(e.mapsUrl, 300);
-      return {
-        id: `acara${i + 1}`,
-        title: line(e.title, 40),
-        startIso: iso(e.startIso),
-        endIso: iso(e.endIso),
-        dateLabel: line(e.dateLabel, 60),
-        timeLabel: line(e.timeLabel, 60),
-        venueName: line(e.venueName, 100),
-        address: para(e.address, 200),
-        mapsUrl: MAPS_RE.test(maps) ? maps : ""
-      };
-    }).filter((e) => e.title),
+    events,
     story: arr(d.story, 8).map((v) => {
       const s = obj(v);
       return { title: line(s.title, 80), period: line(s.period, 30), body: para(s.body, 1200) };
@@ -629,6 +647,10 @@ async function publicInvitation(row, preview) {
 }
 var esc = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 var absolute = (u) => u.startsWith("/") ? SITE_URL + u : u;
+function cleanGuestName(raw) {
+  if (/https?|www\.|\.(com|id|net|org|co|me|ly|xyz|top|site|link|app|shop)\b|@/i.test(raw)) return "";
+  return raw.normalize("NFKC").replace(/[^\p{L}\p{N} .,&'’-]/gu, "").replace(/\s+/g, " ").trim().slice(0, 40);
+}
 async function invitationShareHtml(slug, guest) {
   let d = null;
   if (slug === "demo") d = demoInvitation();
@@ -810,7 +832,9 @@ async function rateLimited(bucket, ipHash, max, windowMs) {
   ));
   if (Number(row.n) >= max) return true;
   await db.insert(schema_exports.rateEvents).values({ bucket, ipHash });
-  await db.delete(schema_exports.rateEvents).where(lt2(schema_exports.rateEvents.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1e3)));
+  if (Math.random() < 0.02) {
+    await db.delete(schema_exports.rateEvents).where(lt2(schema_exports.rateEvents.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1e3)));
+  }
   return false;
 }
 function detectImageType(buf) {
@@ -995,7 +1019,7 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
   const id = params.id;
   const [p] = /^[\w-]{1,40}$/.test(id) ? await getDb().select().from(schema_exports.products).where(eq3(schema_exports.products.id, id)).limit(1) : [];
   if (!p) {
-    return html('<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=/katalog"><title>dy.florist</title></head><body><a href="/katalog">Lihat katalog dy.florist</a></body></html>', 404);
+    return html('<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>dy.florist</title></head><body><a href="/katalog">Lihat katalog dy.florist</a></body></html>', 404);
   }
   const e = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const image = p.image.startsWith("/") ? SITE_URL + p.image : p.image;
@@ -1015,7 +1039,6 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
 <meta property="og:url" content="${e(SITE_URL + "/produk/" + p.id)}">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="canonical" href="${e(SITE_URL + target)}">
-<meta http-equiv="refresh" content="0; url=${e(target)}">
 </head><body><p><a href="${e(target)}">${e(p.name)}</a></p></body></html>`);
 }).get("/invitations/:slug", async ({ params, query, request, set }) => {
   if (params.slug === "demo") {
@@ -1041,7 +1064,7 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
     set.status = 404;
     return { error: "Undangan tidak ditemukan" };
   }
-  set.headers["cache-control"] = "no-store";
+  set.headers["cache-control"] = preview ? "no-store" : "public, max-age=0, s-maxage=10, stale-while-revalidate=60";
   return publicInvitation(row, preview);
 }).post("/invitations/:slug/wishes", async ({ params, body, request, set }) => {
   if (request.headers.get("x-requested-with") !== "dyflorist") {
@@ -1063,11 +1086,11 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
     return { error: "Ucapan untuk undangan ini ditutup" };
   }
   const ipHash = hashIp(clientIp(request));
-  if (await rateLimited(`wish:${row.id}`, ipHash, 5, 10 * 60 * 1e3)) {
+  if (await rateLimited(`wish:${row.id}`, ipHash, 30, 10 * 60 * 1e3)) {
     set.status = 429;
     return { error: "Terlalu banyak ucapan dalam waktu singkat. Coba lagi nanti." };
   }
-  if (await rateLimited(`wish-all:${row.id}`, "all", 300, 60 * 60 * 1e3)) {
+  if (await rateLimited(`wish-all:${row.id}`, "all", 600, 60 * 60 * 1e3)) {
     set.status = 429;
     return { error: "Sedang banyak ucapan masuk. Coba lagi beberapa menit lagi." };
   }
@@ -1107,7 +1130,7 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
     guests: t.Optional(t.Integer({ minimum: 1, maximum: 10 }))
   })
 }).get("/invitation-share/:slug", async ({ params, query }) => {
-  const guest = typeof query.to === "string" ? query.to.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) : "";
+  const guest = typeof query.to === "string" ? cleanGuestName(query.to) : "";
   const { status, html } = await invitationShareHtml(params.slug.toLowerCase(), guest);
   return new Response(html, {
     status,
@@ -1687,7 +1710,7 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
       return { error: "Belum ada isian dari pelanggan" };
     }
     const before = parseStoredData(row.data);
-    const merged = mergeIntake(before, intake);
+    const merged = normalizeInvitationData(mergeIntake(before, intake));
     const after = new Set(mediaUrls(merged));
     await getDb().update(schema_exports.invitations).set({
       data: JSON.stringify(merged),
@@ -1775,12 +1798,21 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
 var app_default = app;
 
 // server/handler.ts
+var BOT_RE = /WhatsApp|facebookexternalhit|Facebot|meta-externalagent|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot|Pinterest|SkypeUriPreview|Line\/|Googlebot|bingbot|Applebot/i;
 var handler_default = {
   fetch: (request) => {
     const url = new URL(request.url);
     const forward = (path) => app_default.fetch(new Request(`${url.origin}${path}`, { method: request.method, headers: request.headers }));
     const product = /^\/produk\/([\w-]{1,40})\/?$/.exec(url.pathname);
-    if (product) return forward(`/api/share/${product[1]}`);
+    if (product) {
+      if (!BOT_RE.test(request.headers.get("user-agent") ?? "")) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: `/katalog?produk=${encodeURIComponent(product[1])}`, "cache-control": "no-store" }
+        });
+      }
+      return forward(`/api/share/${product[1]}`);
+    }
     const invitation = /^\/undangan\/([a-z0-9-]{1,60})\/?$/i.exec(url.pathname);
     if (invitation) return forward(`/api/invitation-share/${invitation[1]}${url.search}`);
     return app_default.fetch(request);

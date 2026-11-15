@@ -5,7 +5,7 @@ import {
   parseIntake, parseStoredData, pickIntake, publishProblems,
 } from './invitations/model';
 import {
-  archiveIfExpired, attendanceStats, clearExpiredPreviews, expiresAtOf, findInvitationById, findInvitationByIntakeToken, findInvitationBySlug,
+  archiveIfExpired, attendanceStats, cleanGuestName, clearExpiredPreviews, expiresAtOf, findInvitationById, findInvitationByIntakeToken, findInvitationBySlug,
   invitationShareHtml, newToken, publicInvitation, publicWish, sweepExpired, tokenEquals, toDate,
 } from './invitations/service';
 import { Elysia, t } from 'elysia';
@@ -242,7 +242,7 @@ export const app = new Elysia({ prefix: '/api' })
       ? await getDb().select().from(schema.products).where(eq(schema.products.id, id)).limit(1)
       : [];
     if (!p) {
-      return html('<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=/katalog"><title>dy.florist</title></head><body><a href="/katalog">Lihat katalog dy.florist</a></body></html>', 404);
+      return html('<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>dy.florist</title></head><body><a href="/katalog">Lihat katalog dy.florist</a></body></html>', 404);
     }
     const e = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
     const image = p.image.startsWith('/') ? SITE_URL + p.image : p.image;
@@ -262,7 +262,6 @@ export const app = new Elysia({ prefix: '/api' })
 <meta property="og:url" content="${e(SITE_URL + '/produk/' + p.id)}">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="canonical" href="${e(SITE_URL + target)}">
-<meta http-equiv="refresh" content="0; url=${e(target)}">
 </head><body><p><a href="${e(target)}">${e(p.name)}</a></p></body></html>`);
   })
 
@@ -293,8 +292,10 @@ export const app = new Elysia({ prefix: '/api' })
       set.status = 404;
       return { error: 'Undangan tidak ditemukan' };
     }
-    // Tanpa cache: ucapan baru harus langsung terlihat saat tamu memuat ulang halaman
-    set.headers['cache-control'] = 'no-store';
+    // Undangan terbit sama untuk semua tamu (nama tamu hanya ada di URL halaman, tidak ikut ke API), jadi aman di-cache di CDN
+    // selama beberapa detik. Ribuan tamu yang membuka bersamaan hanya memicu 1 pembacaan database per ~10 detik.
+    // Pratinjau draft tidak pernah di-cache.
+    set.headers['cache-control'] = preview ? 'no-store' : 'public, max-age=0, s-maxage=10, stale-while-revalidate=60';
     return publicInvitation(row, preview);
   })
 
@@ -320,11 +321,12 @@ export const app = new Elysia({ prefix: '/api' })
       return { error: 'Ucapan untuk undangan ini ditutup' };
     }
     const ipHash = hashIp(clientIp(request));
-    if (await rateLimited(`wish:${row.id}`, ipHash, 5, 10 * 60 * 1000)) {
+    // Tamu di satu gedung sering memakai WiFi yang sama (satu IP), jadi batas per IP dibuat longgar: 30 ucapan / 10 menit
+    if (await rateLimited(`wish:${row.id}`, ipHash, 30, 10 * 60 * 1000)) {
       set.status = 429;
       return { error: 'Terlalu banyak ucapan dalam waktu singkat. Coba lagi nanti.' };
     }
-    if (await rateLimited(`wish-all:${row.id}`, 'all', 300, 60 * 60 * 1000)) {
+    if (await rateLimited(`wish-all:${row.id}`, 'all', 600, 60 * 60 * 1000)) {
       set.status = 429;
       return { error: 'Sedang banyak ucapan masuk. Coba lagi beberapa menit lagi.' };
     }
@@ -361,7 +363,7 @@ export const app = new Elysia({ prefix: '/api' })
 
   // Pratinjau link undangan untuk WhatsApp/media sosial (dipanggil lewat rewrite khusus bot di vercel.json)
   .get('/invitation-share/:slug', async ({ params, query }) => {
-    const guest = typeof query.to === 'string' ? query.to.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) : '';
+    const guest = typeof query.to === 'string' ? cleanGuestName(query.to) : '';
     const { status, html } = await invitationShareHtml(params.slug.toLowerCase(), guest);
     return new Response(html, {
       status,
@@ -968,7 +970,7 @@ export const app = new Elysia({ prefix: '/api' })
         return { error: 'Belum ada isian dari pelanggan' };
       }
       const before = parseStoredData(row.data);
-      const merged = mergeIntake(before, intake);
+      const merged = normalizeInvitationData(mergeIntake(before, intake)); // juga memperbarui tanggal sampul dari acara
       const after = new Set(mediaUrls(merged));
       await getDb().update(schema.invitations).set({
         data: JSON.stringify(merged), intakeStatus: 'applied', updatedAt: new Date(),

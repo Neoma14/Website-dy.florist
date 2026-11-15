@@ -1220,6 +1220,7 @@ function renderCartDrawer() {
   if (drawerFooter) drawerFooter.style.display = 'block';
   const detailsEl = document.getElementById('drawerOrderDetails');
   if (detailsEl) detailsEl.style.display = 'flex';
+  syncCartForm();
 
   if (list) {
     list.innerHTML = cart.map(item => `
@@ -1247,12 +1248,40 @@ function renderCartDrawer() {
   if (savingsAmount) savingsAmount.textContent = formatIDR(savings);
 }
 
+// Produk digital (undangan) = produk yang punya link contoh /undangan/...; tidak dikirim, tanpa tanggal & kartu ucapan
+function digitalDemoUrl(id) {
+  const u = PRODUCTS.find((p) => p.id === id)?.demoUrl;
+  return typeof u === 'string' && /^\/undangan\/[a-z0-9-]{1,60}$/.test(u) ? u : '';
+}
+
+function cartKinds() {
+  const digital = cart.filter((i) => digitalDemoUrl(i.id)).length;
+  return { hasDigital: digital > 0, hasPhysical: digital < cart.length, onlyDigital: digital > 0 && digital === cart.length };
+}
+
+// Isi formulir keranjang menyesuaikan isi keranjang: pesanan undangan saja tidak perlu alamat, tanggal, atau kartu ucapan
+function syncCartForm() {
+  const { hasPhysical, onlyDigital } = cartKinds();
+  const set = (id, hidden) => { const el = document.getElementById(id); if (el) el.hidden = hidden; };
+  set('drawerDeliveryGroup', !hasPhysical);
+  set('drawerCardGroup', !hasPhysical);
+  set('drawerPriceNote', onlyDigital);
+  set('drawerDigitalNote', !onlyDigital);
+  const label = document.getElementById('drawerRequestLabel');
+  const req = document.getElementById('drawerRequest');
+  if (label) label.textContent = onlyDigital ? 'Catatan Pesanan (Opsional)' : 'Keterangan / Request Khusus (Opsional)';
+  if (req) req.placeholder = onlyDigital
+    ? 'Contoh: nama mempelai, perkiraan tanggal acara, tema yang diinginkan'
+    : 'Contoh: warna wrapping biru, pita gold, ukuran lebih besar, ganti jenis bunga';
+}
+
 function checkoutCartWhatsApp() {
   if (cart.length === 0) return;
 
   const val = (id) => (document.getElementById(id)?.value || '').trim();
   const name = val('drawerRecipient');
   const phone = val('drawerPhone');
+  const { hasDigital, hasPhysical, onlyDigital } = cartKinds();
   const method = document.querySelector('input[name="drawerMethod"]:checked')?.value || 'Diantar';
   const receiver = val('drawerReceiver');
   const address = val('drawerAddress');
@@ -1264,8 +1293,8 @@ function checkoutCartWhatsApp() {
   const missing = [];
   if (!name) missing.push('nama pemesan');
   if (!/^[0-9+\-\s]{8,20}$/.test(phone)) missing.push('nomor WhatsApp');
-  if (method === 'Diantar' && !address) missing.push('alamat pengiriman');
-  if (!day) missing.push('tanggal');
+  if (hasPhysical && method === 'Diantar' && !address) missing.push('alamat pengiriman');
+  if (hasPhysical && !day) missing.push('tanggal');
   if (missing.length) {
     showToast('Mohon lengkapi: ' + missing.join(', ') + '.');
     const first = { 'nama pemesan': 'drawerRecipient', 'nomor WhatsApp': 'drawerPhone', 'alamat pengiriman': 'drawerAddress', 'tanggal': 'drawerDate' }[missing[0]];
@@ -1273,36 +1302,54 @@ function checkoutCartWhatsApp() {
     return;
   }
 
-  const when = formatOrderDate(day, time);
   const recipient = `${name} (${phone})`;
+  const when = hasPhysical ? formatOrderDate(day, time) : '';
   const deliveryLine = method === 'Diantar'
     ? `*Metode:* Diantar\n*Penerima:* ${receiver || name}\n*Alamat:* ${address}`
     : '*Metode:* Ambil di toko';
-  const date = `${when} · ${method}`;
+  const date = hasPhysical ? `${when} · ${method}` : 'Undangan digital (tanpa pengiriman)';
 
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-  // Link produk: WhatsApp menampilkan pratinjau foto dari link pertama
+  // Link produk: WhatsApp menampilkan pratinjau foto dari link pertama. Undangan digital: tautkan contohnya.
   let itemsText = cart.map((item, index) => {
     const d = cartItemDiscount(item);
     const promo = d ? ` _(harga normal ${formatIDR(d.was * item.quantity)}, diskon ${d.pct}%)_` : '';
-    return `${index + 1}. *${item.name}* x${item.quantity} = ${formatIDR(item.price * item.quantity)}${promo}\n   Foto: ${productShareUrl(item.id)}`;
+    const demo = digitalDemoUrl(item.id);
+    const tag = demo && hasPhysical ? ' _(undangan digital)_' : '';
+    const link = demo ? `Contoh: ${SITE_ORIGIN}${demo}` : `Foto: ${productShareUrl(item.id)}`;
+    return `${index + 1}. *${item.name}*${tag} x${item.quantity} = ${formatIDR(item.price * item.quantity)}${promo}\n   ${link}`;
   }).join('\n');
 
-  const text = `🛍️ *ORDER BARU — DY.FLORIST* 🛍️\n` +
-               `---------------------------------------------\n` +
-               `*Daftar Produk:*\n${itemsText}\n\n` +
-               `---------------------------------------------\n` +
-               `*Total Harga:* ${formatIDR(subtotal)}\n` +
-               (cartSavings() > 0 ? `*Total Diskon:* ${formatIDR(cartSavings())}\n` : '') +
-               `---------------------------------------------\n` +
-               `*Pemesan:* ${recipient}\n` +
-               `${deliveryLine}\n` +
-               `*Waktu:* ${when}\n` +
-               `*Keterangan / Request:* ${request || '-'}\n` +
-               `*Pesan Kartu Ucapan:*\n"${note}"\n\n` +
-               `_Catatan: harga dapat lebih tinggi atau lebih rendah jika ada request khusus atau menyesuaikan ketersediaan stok. Harga final dikonfirmasi oleh admin._\n\n` +
-               `Halo Florist dy.florist, saya ingin konfirmasi pesanan ini. Mohon info nomor rekening & ketersediaan. Terima kasih! ✨`;
+  const totals = `*Total Harga:* ${formatIDR(subtotal)}\n` +
+                 (cartSavings() > 0 ? `*Total Diskon:* ${formatIDR(cartSavings())}\n` : '');
+  const digitalNote = '_Undangan digital dikerjakan setelah pembayaran dikonfirmasi. Data mempelai (nama, acara, foto) diisi lewat formulir online yang dikirim admin lewat WhatsApp._';
+
+  const text = onlyDigital
+    ? `💌 *ORDER UNDANGAN DIGITAL — DY.FLORIST* 💌\n` +
+      `---------------------------------------------\n` +
+      `*Pesanan:*\n${itemsText}\n\n` +
+      `---------------------------------------------\n` +
+      totals +
+      `---------------------------------------------\n` +
+      `*Pemesan:* ${recipient}\n` +
+      `*Catatan:* ${request || '-'}\n\n` +
+      `${digitalNote}\n\n` +
+      `Halo dy.florist, saya ingin memesan undangan digital ini. Mohon info nomor rekening & langkah selanjutnya. Terima kasih! ✨`
+    : `🛍️ *ORDER BARU — DY.FLORIST* 🛍️\n` +
+      `---------------------------------------------\n` +
+      `*Daftar Produk:*\n${itemsText}\n\n` +
+      `---------------------------------------------\n` +
+      totals +
+      `---------------------------------------------\n` +
+      `*Pemesan:* ${recipient}\n` +
+      `${deliveryLine}\n` +
+      `*Waktu:* ${when}\n` +
+      `*Keterangan / Request:* ${request || '-'}\n` +
+      `*Pesan Kartu Ucapan:*\n"${note}"\n\n` +
+      `_Catatan: harga dapat lebih tinggi atau lebih rendah jika ada request khusus atau menyesuaikan ketersediaan stok. Harga final dikonfirmasi oleh admin._\n\n` +
+      (hasDigital ? `${digitalNote}\n\n` : '') +
+      `Halo Florist dy.florist, saya ingin konfirmasi pesanan ini. Mohon info nomor rekening & ketersediaan. Terima kasih! ✨`;
 
   // Simpan pesanan di server (total dihitung ulang server). Gagal pun WhatsApp tetap dibuka.
   api('/orders', {
@@ -1310,8 +1357,10 @@ function checkoutCartWhatsApp() {
     json: {
       recipient: recipient.slice(0, 120),
       scheduled: date.slice(0, 120),
-      note: ((method === 'Diantar' ? `Penerima: ${receiver || name}\nAlamat: ${address}\n` : '') +
-        (request ? `Request: ${request}\n` : '') + `Ucapan: ${note}`).slice(0, 500),
+      note: (onlyDigital
+        ? (request ? `Catatan: ${request}` : 'Undangan digital')
+        : ((method === 'Diantar' ? `Penerima: ${receiver || name}\nAlamat: ${address}\n` : '') +
+          (request ? `Request: ${request}\n` : '') + `Ucapan: ${note}`)).slice(0, 500),
       items: cart.map(i => ({ id: i.id, qty: i.quantity }))
     }
   }).catch(() => {});

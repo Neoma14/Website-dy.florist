@@ -408,7 +408,7 @@ function contentForm() {
     person('groom', 'Mempelai Pria'),
     person('bride', 'Mempelai Wanita'),
     fieldset('Pembuka & Ayat',
-      field('Tanggal di sampul', 'dateLabel', { max: 60, placeholder: 'Otomatis dari acara pertama bila dikosongkan' }),
+      h('p', { class: 'ua-muted small', text: 'Tanggal di sampul dan jam tiap acara otomatis mengikuti tanggal yang diisi di bagian Acara.' }),
       field('Kalimat pembuka (di bawah nama)', 'heroLine', { type: 'textarea', rows: 2, max: 200 }),
       field('Salam', 'greeting.salam', { max: 120 }),
       field('Paragraf pembuka', 'greeting.opening', { type: 'textarea', rows: 4, max: 800 }),
@@ -473,11 +473,6 @@ function contentForm() {
 async function saveInvitation() {
   const c = CUR;
   const d = c.data;
-  // Tanggal sampul otomatis dari acara pertama bila kosong
-  if (!d.dateLabel?.trim()) {
-    const first = (d.events || []).find((e) => e.dateLabel);
-    if (first) d.dateLabel = first.dateLabel;
-  }
   const btn = document.querySelector('.ua-savebar .ua-btn:last-child');
   if (btn) btn.disabled = true;
   try {

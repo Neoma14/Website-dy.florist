@@ -17,6 +17,26 @@
   <meta property="og:image" content="https://www.dyflorist.site/assets/hero.jpg">
   <meta name="twitter:card" content="summary_large_image">
 
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Florist",
+    "name": "dy.florist",
+    "url": "https://www.dyflorist.site/",
+    "image": "https://www.dyflorist.site/assets/hero.jpg",
+    "logo": "https://www.dyflorist.site/assets/logo-web.png",
+    "description": "Buket bunga, hampers & kado personal, kerajinan, dekorasi acara, dan undangan digital di Kota Metro, Lampung.",
+    "telephone": "+6288267108077",
+    "address": { "@type": "PostalAddress", "addressLocality": "Kota Metro", "addressRegion": "Lampung", "addressCountry": "ID" },
+    "areaServed": "Kota Metro, Lampung",
+    "sameAs": [
+      "https://www.instagram.com/dy.florist.metro",
+      "https://www.instagram.com/dy.florist.decoration",
+      "https://www.tiktok.com/@dy.florist.parcel"
+    ]
+  }
+  </script>
+
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -611,32 +631,38 @@
         <label for="drawerPhone">No. WhatsApp Pemesan *</label>
         <input type="tel" id="drawerPhone" maxlength="20" inputmode="tel" autocomplete="tel" placeholder="08xx xxxx xxxx">
 
-        <span class="drawer-label">Metode Penerimaan</span>
-        <div class="delivery-toggle" role="radiogroup" aria-label="Metode penerimaan">
-          <label><input type="radio" name="drawerMethod" value="Diantar" checked> Diantar</label>
-          <label><input type="radio" name="drawerMethod" value="Ambil di toko"> Ambil di toko</label>
+        <!-- Pengiriman & tanggal: disembunyikan bila keranjang hanya berisi produk digital (undangan) -->
+        <div id="drawerDeliveryGroup" class="drawer-contents">
+          <span class="drawer-label">Metode Penerimaan</span>
+          <div class="delivery-toggle" role="radiogroup" aria-label="Metode penerimaan">
+            <label><input type="radio" name="drawerMethod" value="Diantar" checked> Diantar</label>
+            <label><input type="radio" name="drawerMethod" value="Ambil di toko"> Ambil di toko</label>
+          </div>
+
+          <div id="drawerAddressGroup" class="drawer-field-group">
+            <label for="drawerReceiver">Nama Penerima</label>
+            <input type="text" id="drawerReceiver" maxlength="60" placeholder="Kosongkan jika sama dengan pemesan">
+            <label for="drawerAddress">Alamat Pengiriman *</label>
+            <textarea id="drawerAddress" rows="2" maxlength="200" placeholder="Jalan, nomor, kelurahan, patokan"></textarea>
+          </div>
+
+          <label for="drawerDate">Tanggal & Jam *</label>
+          <div class="drawer-datetime">
+            <input type="date" id="drawerDate">
+            <input type="time" id="drawerTime" value="10:00" aria-label="Jam">
+          </div>
         </div>
 
-        <div id="drawerAddressGroup" class="drawer-field-group">
-          <label for="drawerReceiver">Nama Penerima</label>
-          <input type="text" id="drawerReceiver" maxlength="60" placeholder="Kosongkan jika sama dengan pemesan">
-          <label for="drawerAddress">Alamat Pengiriman *</label>
-          <textarea id="drawerAddress" rows="2" maxlength="200" placeholder="Jalan, nomor, kelurahan, patokan"></textarea>
-        </div>
-
-        <label for="drawerDate">Tanggal & Jam *</label>
-        <div class="drawer-datetime">
-          <input type="date" id="drawerDate">
-          <input type="time" id="drawerTime" value="10:00" aria-label="Jam">
-        </div>
-
-        <label for="drawerRequest">Keterangan / Request Khusus (Opsional)</label>
+        <label for="drawerRequest" id="drawerRequestLabel">Keterangan / Request Khusus (Opsional)</label>
         <textarea id="drawerRequest" rows="2" maxlength="300" placeholder="Contoh: warna wrapping biru, pita gold, ukuran lebih besar, ganti jenis bunga"></textarea>
 
-        <label for="drawerNote">Pesan Kartu Ucapan (Free)</label>
-        <textarea id="drawerNote" rows="3" maxlength="300" placeholder="Tuliskan ucapan kartu..."></textarea>
+        <div id="drawerCardGroup" class="drawer-contents">
+          <label for="drawerNote">Pesan Kartu Ucapan (Free)</label>
+          <textarea id="drawerNote" rows="3" maxlength="300" placeholder="Tuliskan ucapan kartu..."></textarea>
+        </div>
 
-        <p class="drawer-price-note">Harga dapat lebih tinggi atau lebih rendah jika ada request khusus atau menyesuaikan ketersediaan stok. Harga final dikonfirmasi oleh admin via WhatsApp.</p>
+        <p class="drawer-price-note" id="drawerPriceNote">Harga dapat lebih tinggi atau lebih rendah jika ada request khusus atau menyesuaikan ketersediaan stok. Harga final dikonfirmasi oleh admin via WhatsApp.</p>
+        <p class="drawer-price-note" id="drawerDigitalNote" hidden>💌 Undangan digital dikerjakan tim dy.florist setelah pembayaran dikonfirmasi. Data mempelai (nama, acara, foto) Anda isi lewat formulir online yang kami kirim lewat WhatsApp. Tidak ada pengiriman fisik.</p>
       </div>
     </div>
 

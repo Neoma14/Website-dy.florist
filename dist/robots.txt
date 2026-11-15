@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /isi/
+Disallow: /api/
+
+Sitemap: https://www.dyflorist.site/sitemap.xml

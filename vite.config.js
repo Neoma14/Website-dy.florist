@@ -19,9 +19,16 @@ const pageRoutes = () => {
   };
 };
 
+// Komentar HTML (mis. "Admin Portal") tidak perlu ikut ke produksi: tidak ada gunanya bagi pengunjung dan memberi petunjuk gratis
+const stripHtmlComments = () => ({
+  name: 'strip-html-comments',
+  apply: 'build',
+  transformIndexHtml: { order: 'post', handler: (html) => html.replace(/<!--[\s\S]*?-->\s*/g, '') },
+});
+
 // Saat `npm run dev`, request /api diteruskan ke server API lokal (npm run dev:api)
 export default defineConfig({
-  plugins: [pageRoutes()],
+  plugins: [pageRoutes(), stripHtmlComments()],
   server: {
     proxy: { '/api': 'http://localhost:3001' },
   },

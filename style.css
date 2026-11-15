@@ -2855,6 +2855,15 @@ button {
   display: none;
 }
 
+/* Pembungkus yang tidak mengubah tata letak (isinya tetap anak langsung dari formulir) */
+.drawer-contents {
+  display: contents;
+}
+
+.drawer-contents[hidden] {
+  display: none;
+}
+
 .drawer-datetime {
   display: grid;
   grid-template-columns: 1.4fr 1fr;
