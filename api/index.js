@@ -67,7 +67,8 @@ var DEMO_INVITATION = {
       childOrder: "Putra pertama dari",
       father: "Bapak Ahmad Santoso",
       mother: "Ibu Sri Wahyuni",
-      photo: ""
+      photo: "",
+      instagram: "rizky.contoh"
     },
     bride: {
       fullName: "Nadia Safitri, S.Pd.",
@@ -75,7 +76,8 @@ var DEMO_INVITATION = {
       childOrder: "Putri kedua dari",
       father: "Bapak Hendra Gunawan",
       mother: "Ibu Rina Marlina",
-      photo: ""
+      photo: "",
+      instagram: "nadia.contoh"
     }
   },
   dateLabel: "Sabtu, 12 Juni 2027",
@@ -99,7 +101,7 @@ var DEMO_INVITATION = {
       timeLabel: "08.00 \u2013 10.00 WIB",
       venueName: "Kediaman Mempelai Wanita",
       address: "Jl. Contoh Melati No. 12, Kota Metro, Lampung",
-      mapsUrl: ""
+      mapsUrl: "https://www.google.com/maps/search/?api=1&query=Kota+Metro+Lampung"
     },
     {
       id: "resepsi",
@@ -110,7 +112,7 @@ var DEMO_INVITATION = {
       timeLabel: "11.00 \u2013 14.00 WIB",
       venueName: "Gedung Serbaguna (contoh)",
       address: "Jl. Contoh Kenanga No. 8, Kota Metro, Lampung",
-      mapsUrl: ""
+      mapsUrl: "https://www.google.com/maps/search/?api=1&query=Kota+Metro+Lampung"
     }
   ],
   story: [
@@ -118,7 +120,7 @@ var DEMO_INVITATION = {
     { title: "Tumbuh Bersama", period: "2023", body: "Hari demi hari kami belajar saling memahami, saling menguatkan, dan menemukan bahwa kebersamaan adalah tempat paling nyaman untuk pulang." },
     { title: "Lamaran", period: "2026", body: "Dengan restu kedua orang tua, kami memantapkan langkah untuk melanjutkan hubungan ini ke jenjang pernikahan." }
   ],
-  photos: { cover: "", gallery: [] },
+  photos: { cover: "", couple: "", closing: "", gallery: [] },
   gifts: {
     note: "Doa restu Anda merupakan karunia yang sangat berarti bagi kami. Namun jika memberi adalah ungkapan tanda kasih, Anda dapat memberi kado secara cashless.",
     accounts: [
@@ -137,12 +139,28 @@ var DEMO_INVITATION = {
   rsvp: { enabled: true, maxGuests: 5 },
   wishes: {
     enabled: true,
+    // minutesAgo diubah menjadi createdAt saat dikirim (lihat demoInvitation), agar "x menit lalu" selalu wajar
     sample: [
-      { name: "Contoh Tamu", attendance: "hadir", message: "Selamat menempuh hidup baru! Semoga menjadi keluarga yang sakinah, mawaddah, warahmah." },
-      { name: "Contoh Sahabat", attendance: "ragu", message: "Barakallahu lakuma wa baraka alaikuma. Bahagia selalu untuk kalian berdua." }
+      { name: "Contoh Tamu", attendance: "hadir", message: "Selamat menempuh hidup baru! Semoga menjadi keluarga yang sakinah, mawaddah, warahmah.", minutesAgo: 12 },
+      { name: "Contoh Sahabat", attendance: "ragu", message: "Barakallahu lakuma wa baraka alaikuma. Bahagia selalu untuk kalian berdua.", minutesAgo: 47 },
+      { name: "Contoh Rekan Kerja", attendance: "hadir", message: "Selamat ya Rizky & Nadia, semoga lancar sampai hari H dan langgeng selamanya.", minutesAgo: 95 },
+      { name: "Contoh Keluarga", attendance: "hadir", message: "Turut berbahagia. Semoga menjadi keluarga yang penuh berkah dan kasih sayang.", minutesAgo: 180 },
+      { name: "Contoh Teman Kuliah", attendance: "tidak", message: "Mohon maaf belum bisa hadir. Doa terbaik dari jauh untuk kalian berdua.", minutesAgo: 320 },
+      { name: "Contoh Tetangga", attendance: "hadir", message: "Selamat menempuh hidup baru, semoga samawa.", minutesAgo: 1500 },
+      { name: "Contoh Sepupu", attendance: "ragu", message: "Insya Allah hadir. Bahagia selalu ya!", minutesAgo: 2900 }
     ]
   }
 };
+function demoInvitation() {
+  const now = Date.now();
+  return {
+    ...DEMO_INVITATION,
+    wishes: {
+      ...DEMO_INVITATION.wishes,
+      sample: DEMO_INVITATION.wishes.sample.map(({ minutesAgo, ...w }) => ({ ...w, createdAt: new Date(now - minutesAgo * 6e4).toISOString() }))
+    }
+  };
+}
 
 // server/app.ts
 import { Elysia, t } from "elysia";
@@ -595,8 +613,8 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
     set.status = 404;
     return { error: "Undangan tidak ditemukan" };
   }
-  set.headers["cache-control"] = "public, max-age=300";
-  return DEMO_INVITATION;
+  set.headers["cache-control"] = "public, max-age=60";
+  return demoInvitation();
 }).get("/bespoke-prices", async () => {
   const rows = await getDb().select().from(schema_exports.bespokePrices).orderBy(asc(schema_exports.bespokePrices.sort));
   return rows.map((r) => ({ key: r.key, kind: r.kind, label: r.label, price: r.price }));

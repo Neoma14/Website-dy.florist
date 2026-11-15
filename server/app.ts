@@ -1,5 +1,5 @@
 import { SITE_URL, sendBlockedAlert } from './lib/mailer';
-import { DEMO_INVITATION } from './invitations/demo';
+import { demoInvitation } from './invitations/demo';
 import { Elysia, t } from 'elysia';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -250,8 +250,8 @@ export const app = new Elysia({ prefix: '/api' })
       set.status = 404;
       return { error: 'Undangan tidak ditemukan' };
     }
-    set.headers['cache-control'] = 'public, max-age=300';
-    return DEMO_INVITATION;
+    set.headers['cache-control'] = 'public, max-age=60';
+    return demoInvitation();
   })
 
   .get('/bespoke-prices', async () => {
