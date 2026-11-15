@@ -103,8 +103,8 @@ export function demoInvitation() {
   return {
     ...DEMO_INVITATION,
     wishes: {
-      ...DEMO_INVITATION.wishes,
-      sample: DEMO_INVITATION.wishes.sample.map(({ minutesAgo, ...w }) => ({ ...w, createdAt: new Date(now - minutesAgo * 60_000).toISOString() })),
+      enabled: DEMO_INVITATION.wishes.enabled,
+      items: DEMO_INVITATION.wishes.sample.map(({ minutesAgo, ...w }) => ({ ...w, createdAt: new Date(now - minutesAgo * 60_000).toISOString() })),
     },
   };
 }

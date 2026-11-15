@@ -1,4 +1,4 @@
-import { mysqlTable, varchar, int, text, timestamp, datetime, index } from 'drizzle-orm/mysql-core';
+import { mysqlTable, varchar, int, text, mediumtext, timestamp, datetime, index } from 'drizzle-orm/mysql-core';
 
 export const categories = mysqlTable('categories', {
   key: varchar('key', { length: 30 }).primaryKey(),
@@ -25,6 +25,8 @@ export const products = mysqlTable('products', {
   price: int('price').notNull(),
   // Harga coret (harga normal sebelum diskon); null = tidak ada diskon
   originalPrice: int('original_price'),
+  // Link contoh untuk produk undangan digital (mis. /undangan/demo); null = tidak ada
+  demoUrl: varchar('demo_url', { length: 200 }),
   badge: varchar('badge', { length: 40 }).notNull().default(''),
   description: text('description').notNull(),
   image: varchar('image', { length: 500 }).notNull(),
@@ -54,7 +56,37 @@ export const orderItems = mysqlTable('order_items', {
 export const sessions = mysqlTable('sessions', {
   tokenHash: varchar('token_hash', { length: 64 }).primaryKey(),
   expiresAt: datetime('expires_at').notNull(),
+  // 'main' = admin utama (semua menu), 'undangan' = Admin Undangan (hanya undangan digital)
+  role: varchar('role', { length: 10 }).notNull().default('main'),
 });
+
+// Undangan digital pelanggan. Isi undangan (nama, acara, foto, dst.) disimpan sebagai JSON tervalidasi di kolom data.
+export const invitations = mysqlTable('invitations', {
+  id: int('id').autoincrement().primaryKey(),
+  slug: varchar('slug', { length: 60 }).notNull().unique(),
+  status: varchar('status', { length: 10 }).notNull().default('draft'), // draft | terbit | arsip
+  template: varchar('template', { length: 30 }).notNull().default('jawa-elegan'),
+  customerName: varchar('customer_name', { length: 120 }).notNull().default(''),
+  customerPhone: varchar('customer_phone', { length: 30 }).notNull().default(''),
+  note: varchar('note', { length: 500 }).notNull().default(''),
+  data: mediumtext('data').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  publishedAt: datetime('published_at'),
+});
+
+// Ucapan & konfirmasi kehadiran tamu
+export const invitationWishes = mysqlTable('invitation_wishes', {
+  id: int('id').autoincrement().primaryKey(),
+  invitationId: int('invitation_id').notNull(),
+  name: varchar('name', { length: 60 }).notNull(),
+  message: varchar('message', { length: 300 }).notNull(),
+  attendance: varchar('attendance', { length: 10 }), // hadir | tidak | ragu | null
+  guests: int('guests').notNull().default(1),
+  status: varchar('status', { length: 10 }).notNull().default('tampil'), // tampil | menunggu | sembunyi
+  ipHash: varchar('ip_hash', { length: 64 }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [index('invitation_wishes_inv_idx').on(t.invitationId, t.createdAt)]);
 
 export const loginAttempts = mysqlTable('login_attempts', {
   id: int('id').autoincrement().primaryKey(),

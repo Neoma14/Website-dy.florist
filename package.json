@@ -8,6 +8,7 @@
     "build": "vite build && npm run build:api && tsx scripts/migrate-ci.ts",
     "preview": "vite preview",
     "hash-password": "tsx scripts/hash-password.ts",
+    "hash-password:undangan": "tsx scripts/hash-password.ts undangan",
     "db:migrate": "tsx --env-file=.env scripts/migrate.ts",
     "db:seed": "tsx --env-file=.env scripts/seed.ts",
     "test": "tsx --env-file=.env --test server/app.test.ts",

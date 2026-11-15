@@ -19,21 +19,29 @@ export function clientIp(request: Request): string {
   return (xff?.split(',')[0] ?? request.headers.get('x-real-ip') ?? 'unknown').trim();
 }
 
-export async function createSession(): Promise<{ token: string; expires: Date }> {
+export type AdminRole = 'main' | 'undangan';
+
+export async function createSession(role: AdminRole = 'main'): Promise<{ token: string; expires: Date }> {
   const db = getDb();
   const token = randomBytes(32).toString('hex');
   const expires = new Date(Date.now() + SESSION_TTL_MS);
-  await db.insert(schema.sessions).values({ tokenHash: sha256(token), expiresAt: expires });
+  await db.insert(schema.sessions).values({ tokenHash: sha256(token), expiresAt: expires, role });
   await db.delete(schema.sessions).where(lt(schema.sessions.expiresAt, new Date()));
   return { token, expires };
 }
 
-export async function isValidSession(token: string | undefined): Promise<boolean> {
-  if (!token || !/^[a-f0-9]{64}$/.test(token)) return false;
-  const rows = await getDb().select().from(schema.sessions)
+/** Peran sesi yang masih berlaku, atau null bila tidak login. */
+export async function sessionRole(token: string | undefined): Promise<AdminRole | null> {
+  if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
+  const [row] = await getDb().select({ role: schema.sessions.role }).from(schema.sessions)
     .where(and(eq(schema.sessions.tokenHash, sha256(token)), gt(schema.sessions.expiresAt, new Date())))
     .limit(1);
-  return rows.length === 1;
+  if (!row) return null;
+  return row.role === 'undangan' ? 'undangan' : 'main';
+}
+
+export async function isValidSession(token: string | undefined): Promise<boolean> {
+  return (await sessionRole(token)) !== null;
 }
 
 export async function destroySession(token: string | undefined) {
@@ -152,4 +160,11 @@ export function detectImageType(buf: Uint8Array): 'jpg' | 'png' | 'webp' | null 
         buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50) return 'webp';
   }
   return null;
+}
+
+// --- Validasi musik MP3 dari isi file: tag ID3 atau sinkronisasi frame MPEG audio ---
+export function isMp3(buf: Uint8Array): boolean {
+  if (buf.length < 4) return false;
+  if (buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) return true; // "ID3"
+  return buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0 && (buf[1] & 0x06) !== 0; // frame sync + layer valid
 }

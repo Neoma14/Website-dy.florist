@@ -339,10 +339,18 @@ function wishItem(w) {
   );
 }
 
-function renderRsvpWishes(d, guest) {
+function renderRsvpWishes(d, guest, slug) {
   const rsvpOn = !!d.rsvp?.enabled;
-  if (!rsvpOn && !d.wishes?.enabled) return null;
-  const all = (Array.isArray(d.wishes?.sample) ? d.wishes.sample : []).slice(0, 200);
+  const wishesOn = d.wishes?.enabled !== false;
+  if (!rsvpOn && !wishesOn) return null;
+  const source = Array.isArray(d.wishes?.items) ? d.wishes.items : Array.isArray(d.wishes?.sample) ? d.wishes.sample : [];
+  const all = source.slice(0, 200);
+  // Statistik dari server (menghitung juga ucapan yang menunggu persetujuan); contoh: dihitung dari daftar
+  const stats = { hadir: 0, tidak: 0, ragu: 0 };
+  for (const k of Object.keys(stats)) {
+    const n = Number(d.rsvp?.stats?.[k]);
+    stats[k] = Number.isFinite(n) && n >= 0 ? n : all.filter((w) => w.attendance === k).length;
+  }
   let page = 1;
 
   const total = h('p', { class: 'wish-total' });
@@ -356,7 +364,7 @@ function renderRsvpWishes(d, guest) {
 
   function draw() {
     total.textContent = `${all.length} Ucapan`;
-    for (const k of Object.keys(counts)) counts[k].textContent = String(all.filter((w) => w.attendance === k).length);
+    for (const k of Object.keys(counts)) counts[k].textContent = String(stats[k]);
     const pages = Math.max(1, Math.ceil(all.length / WISHES_PER_PAGE));
     page = Math.min(Math.max(1, page), pages);
     list.replaceChildren(...all.slice((page - 1) * WISHES_PER_PAGE, page * WISHES_PER_PAGE).map(wishItem));
@@ -384,9 +392,10 @@ function renderRsvpWishes(d, guest) {
     attend,
     rsvpOn ? guestsRow : null,
     h('button', { type: 'submit', class: 'btn-navy', text: 'Kirim' }),
-    d.isDemo ? h('p', { class: 'form-note', text: 'Ini undangan contoh: ucapan hanya tampil di layar Anda dan tidak disimpan.' }) : null,
+    d.isDemo || d.isPreview ? h('p', { class: 'form-note', text: d.isPreview ? 'Mode pratinjau admin: ucapan tidak disimpan.' : 'Ini undangan contoh: ucapan hanya tampil di layar Anda dan tidak disimpan.' }) : null,
   );
-  form.addEventListener('submit', (e) => {
+  const submitBtn = form.querySelector('button[type=submit]');
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(form);
     const name = String(fd.get('name') || '').trim().slice(0, 60);
@@ -395,12 +404,41 @@ function renderRsvpWishes(d, guest) {
     if (!name) { toast('Mohon isi nama Anda'); form.querySelector('#fName').focus(); return; }
     if (!message) { toast('Mohon tulis ucapan Anda'); form.querySelector('#fMsg').focus(); return; }
     if (rsvpOn && !ATTEND_LABEL[attendance]) { toast('Mohon pilih konfirmasi kehadiran'); attend.focus(); return; }
-    // Undangan contoh: tampil di layar saja. Undangan pelanggan akan dikirim ke server (tahap berikutnya).
-    all.unshift({ name, attendance, message, createdAt: new Date().toISOString() });
-    page = 1;
-    draw();
-    form.querySelector('#fMsg').value = '';
-    toast('Terima kasih atas ucapan dan doanya');
+    const added = (item, shown) => {
+      if (ATTEND_LABEL[item.attendance]) stats[item.attendance] += 1;
+      if (shown) all.unshift(item);
+      page = 1;
+      draw();
+      form.querySelector('#fMsg').value = '';
+    };
+    // Undangan contoh & pratinjau draft: tampil di layar saja, tidak disimpan
+    if (d.isDemo || d.isPreview) {
+      added({ name, attendance, message, createdAt: new Date().toISOString() }, true);
+      toast(d.isPreview ? 'Mode pratinjau: ucapan tidak disimpan' : 'Terima kasih atas ucapan dan doanya');
+      return;
+    }
+    submitBtn.disabled = true;
+    try {
+      const res = await fetch(`/api/invitations/${encodeURIComponent(slug)}/wishes`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json', 'x-requested-with': 'dyflorist' },
+        body: JSON.stringify({
+          name, message,
+          attendance: rsvpOn ? attendance : null,
+          guests: attendance === 'hadir' ? Number(fd.get('guests')) || 1 : undefined,
+        }),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) { toast(typeof out.error === 'string' ? out.error : 'Ucapan gagal dikirim, coba lagi'); return; }
+      const shown = out.status === 'tampil';
+      added(out.item || { name, attendance, message, createdAt: new Date().toISOString() }, shown);
+      toast(shown ? 'Terima kasih atas ucapan dan doanya' : 'Terima kasih! Ucapan akan tampil setelah disetujui mempelai');
+    } catch {
+      toast('Koneksi bermasalah. Ucapan belum terkirim, coba lagi.');
+    } finally {
+      submitBtn.disabled = false;
+    }
   });
   draw();
 
@@ -530,7 +568,7 @@ async function start() {
   let d;
   try {
     const res = await fetch(`/api/invitations/${encodeURIComponent(slug)}`, { credentials: 'same-origin' });
-    if (!res.ok) throw new Error(res.status === 404 ? 'Undangan tidak ditemukan.' : 'Undangan gagal dimuat.');
+    if (!res.ok) throw new Error(res.status === 404 ? 'Undangan tidak ditemukan.' : res.status === 410 ? 'Undangan ini sudah tidak aktif.' : 'Undangan gagal dimuat.');
     d = await res.json();
   } catch (e) {
     showError(e.message && e.message.startsWith('Undangan') ? e.message : 'Undangan gagal dimuat. Periksa koneksi Anda lalu muat ulang.');
@@ -551,13 +589,16 @@ async function start() {
   const main = document.getElementById('invMain');
   const col = h('div', { class: 'inv-col' },
     renderIntro(d), renderQuote(d, letters), renderCouple(d, letters), renderSaveDate(d), renderStory(d),
-    renderGift(d), renderRsvpWishes(d, guest), renderClosing(d), renderGallery(d), renderFooter(d));
+    renderGift(d), renderRsvpWishes(d, guest, slug), renderClosing(d), renderGallery(d), renderFooter(d));
   main.classList.add('has-side');
   main.replaceChildren(renderSide(d, letters), col);
   renderNav([...col.querySelectorAll('section[id]')].map((s) => s.id));
 
   if (d.isDemo) {
     document.getElementById('invCover').append(h('div', { class: 'demo-ribbon' }, 'Undangan contoh · ', h('a', { href: '/katalog?kategori=undangan', text: 'Pesan di dy.florist' })));
+  } else if (d.isPreview) {
+    // Pita tetap terlihat selama pratinjau agar admin tidak mengira undangan sudah terbit
+    document.body.append(h('div', { class: 'demo-ribbon preview-ribbon' }, 'Pratinjau · belum terbit'));
   }
 
   // Musik (hanya jika ada berkas musik yang aman)

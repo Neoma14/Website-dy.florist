@@ -489,6 +489,7 @@ body:not(.jawa) .jawa-only { display: none !important; }
   white-space: nowrap;
 }
 .demo-ribbon a { color: var(--gold-light); font-weight: 500; }
+.preview-ribbon { z-index: 70; background: rgba(142,85,87,.94); }
 
 /* ---------- Tombol ---------- */
 .btn-gold, .btn-ghost, .btn-navy {

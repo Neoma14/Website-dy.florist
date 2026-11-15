@@ -1,5 +1,11 @@
 import { SITE_URL, sendBlockedAlert } from './lib/mailer';
 import { demoInvitation } from './invitations/demo';
+import {
+  ATTENDANCE, INVITATION_STATUSES, isValidSlug, mediaUrls, newInvitationData, normalizeInvitationData, parseStoredData, publishProblems,
+} from './invitations/model';
+import {
+  attendanceStats, findInvitationById, findInvitationBySlug, invitationShareHtml, publicInvitation, publicWish,
+} from './invitations/service';
 import { Elysia, t } from 'elysia';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -9,8 +15,12 @@ import { getDb, schema } from './db';
 import { describeHash, verifyPassword } from './lib/password';
 import {
   SESSION_COOKIE, SESSION_TTL_MS, clearFailedLogins, clientIp, createSession, destroySession,
-  detectImageType, hashIp, isValidSession, loginGate, LOCK_MS, rateLimited, registerFailedLogin, createRecoveryToken, useRecoveryToken,
+  detectImageType, hashIp, isMp3, loginGate, LOCK_MS, rateLimited, registerFailedLogin, createRecoveryToken, sessionRole, useRecoveryToken,
+  type AdminRole,
 } from './lib/security';
+
+// Admin Undangan hanya boleh membuka menu undangan digital (plus cek sesi & keluar)
+const UNDANGAN_ADMIN_PATHS = /^\/api\/admin\/(session|logout|invitations(\/.*)?)$/;
 
 
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // batas body Vercel Functions ~4.5 MB
@@ -52,6 +62,8 @@ const productBody = t.Object({
   category: t.String({ minLength: 1, maxLength: 30, pattern: '^[a-z0-9_]+$' }),
   price: t.Integer({ minimum: 0, maximum: 100_000_000 }),
   originalPrice: t.Optional(t.Union([t.Integer({ minimum: 0, maximum: 100_000_000 }), t.Null()])),
+  // Link contoh undangan digital (hanya halaman undangan di situs ini); kosong = tidak ada
+  demoUrl: t.Optional(t.Union([t.String({ maxLength: 70, pattern: '^(/undangan/[a-z0-9-]{1,60})?$' }), t.Null()])),
   badge: text(0, 40),
   description: text(1, 1000),
   image: text(1, 500),
@@ -119,11 +131,11 @@ function sessionCookie(value: string, expires: Date | null): string {
   return attrs.join('; ');
 }
 
-async function storeImage(buf: Uint8Array, ext: string, contentType: string): Promise<string> {
+async function storeImage(buf: Uint8Array, ext: string, contentType: string, folder: 'products' | 'invitations' = 'products'): Promise<string> {
   const name = randomBytes(16).toString('hex');
   if (blobConfigured()) {
     const { put } = await import('@vercel/blob');
-    const blob = await put(`products/${name}.${ext}`, Buffer.from(buf), {
+    const blob = await put(`${folder}/${name}.${ext}`, Buffer.from(buf), {
       access: 'public', contentType, addRandomSuffix: false,
     });
     return blob.url;
@@ -147,6 +159,7 @@ async function removeImage(url: string) {
 const toPublic = (p: typeof schema.products.$inferSelect) => ({
   id: p.id, name: p.name, category: p.category, categoryName: p.categoryName, price: p.price,
   originalPrice: p.originalPrice ?? null,
+  demoUrl: p.demoUrl ?? null,
   badge: p.badge, description: p.description, image: p.image, rating: p.rating / 10, reviews: p.reviews,
 });
 
@@ -165,7 +178,9 @@ export const app = new Elysia({ prefix: '/api' })
     if (!path.startsWith('/api/admin')) return;
     if (!csrfOk(request)) return denied(403, 'Permintaan ditolak');
     if (path === '/api/admin/login' || path === '/api/admin/recover') return;
-    if (!(await isValidSession(getCookie(request, SESSION_COOKIE)))) return denied(401, 'Belum login');
+    const role = await sessionRole(getCookie(request, SESSION_COOKIE));
+    if (!role) return denied(401, 'Belum login');
+    if (role === 'undangan' && !UNDANGAN_ADMIN_PATHS.test(path)) return denied(403, 'Akun Admin Undangan hanya bisa membuka menu undangan digital');
   })
   .onAfterHandle({ as: 'global' }, ({ set }) => {
     set.headers['x-content-type-options'] = 'nosniff';
@@ -244,14 +259,93 @@ export const app = new Elysia({ prefix: '/api' })
 </head><body><p><a href="${e(target)}">${e(p.name)}</a></p></body></html>`);
   })
 
-  // Data undangan digital (sementara: hanya undangan contoh; undangan pelanggan menyusul di database)
-  .get('/invitations/:slug', ({ params, set }) => {
-    if (params.slug !== 'demo') {
+  // ---------- Undangan digital (publik) ----------
+  // Undangan terbit bisa dibuka siapa saja; draft hanya oleh admin yang sedang login (pratinjau)
+  .get('/invitations/:slug', async ({ params, request, set }) => {
+    if (params.slug === 'demo') {
+      set.headers['cache-control'] = 'public, max-age=60';
+      return demoInvitation();
+    }
+    const row = /^[a-z0-9-]{3,60}$/.test(params.slug) ? await findInvitationBySlug(params.slug) : undefined;
+    if (row?.status === 'arsip') {
+      set.status = 410;
+      return { error: 'Undangan ini sudah tidak aktif.' };
+    }
+    const preview = row?.status === 'draft' && !!(await sessionRole(getCookie(request, SESSION_COOKIE)));
+    if (!row || (row.status !== 'terbit' && !preview)) {
       set.status = 404;
       return { error: 'Undangan tidak ditemukan' };
     }
-    set.headers['cache-control'] = 'public, max-age=60';
-    return demoInvitation();
+    // Tanpa cache: ucapan baru harus langsung terlihat saat tamu memuat ulang halaman
+    set.headers['cache-control'] = 'no-store';
+    return publicInvitation(row, preview);
+  })
+
+  // Ucapan & konfirmasi kehadiran dari tamu
+  .post('/invitations/:slug/wishes', async ({ params, body, request, set }) => {
+    // Header khusus memaksa browser melakukan preflight, sehingga situs lain tidak bisa mengirim ucapan atas nama tamu
+    if (request.headers.get('x-requested-with') !== 'dyflorist') {
+      set.status = 403;
+      return { error: 'Permintaan ditolak' };
+    }
+    const row = /^[a-z0-9-]{3,60}$/.test(params.slug) ? await findInvitationBySlug(params.slug) : undefined;
+    if (!row || row.status !== 'terbit') {
+      set.status = 404;
+      return { error: 'Undangan tidak ditemukan' };
+    }
+    const d = parseStoredData(row.data);
+    if (!d.wishes.enabled && !d.rsvp.enabled) {
+      set.status = 403;
+      return { error: 'Ucapan untuk undangan ini ditutup' };
+    }
+    const ipHash = hashIp(clientIp(request));
+    if (await rateLimited(`wish:${row.id}`, ipHash, 5, 10 * 60 * 1000)) {
+      set.status = 429;
+      return { error: 'Terlalu banyak ucapan dalam waktu singkat. Coba lagi nanti.' };
+    }
+    if (await rateLimited(`wish-all:${row.id}`, 'all', 300, 60 * 60 * 1000)) {
+      set.status = 429;
+      return { error: 'Sedang banyak ucapan masuk. Coba lagi beberapa menit lagi.' };
+    }
+    const clean = (s: string, max: number) => s.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').trim().slice(0, max);
+    const name = clean(body.name, 60).replace(/\n/g, ' ');
+    const message = clean(body.message, 300);
+    const attendance = d.rsvp.enabled && body.attendance ? body.attendance : null;
+    if (!name || !message) {
+      set.status = 422;
+      return { error: 'Nama dan ucapan wajib diisi' };
+    }
+    if (d.rsvp.enabled && !attendance) {
+      set.status = 422;
+      return { error: 'Mohon pilih konfirmasi kehadiran' };
+    }
+    const guests = attendance === 'hadir' ? Math.min(d.rsvp.maxGuests, Math.max(1, body.guests ?? 1)) : 0;
+    const status = d.wishes.requireApproval ? 'menunggu' : 'tampil';
+    const [res] = await getDb().insert(schema.invitationWishes).values({
+      invitationId: row.id, name, message, attendance, guests, status, ipHash,
+    });
+    return {
+      ok: true,
+      status,
+      item: publicWish({ id: Number(res.insertId), invitationId: row.id, name, message, attendance, guests, status, ipHash, createdAt: new Date() }),
+    };
+  }, {
+    body: t.Object({
+      name: text(1, 60),
+      message: text(1, 300),
+      attendance: t.Optional(t.Union([...ATTENDANCE.map((a) => t.Literal(a)), t.Null()])),
+      guests: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
+    }),
+  })
+
+  // Pratinjau link undangan untuk WhatsApp/media sosial (dipanggil lewat rewrite khusus bot di vercel.json)
+  .get('/invitation-share/:slug', async ({ params, query }) => {
+    const guest = typeof query.to === 'string' ? query.to.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) : '';
+    const { status, html } = await invitationShareHtml(params.slug.toLowerCase(), guest);
+    return new Response(html, {
+      status,
+      headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff' },
+    });
   })
 
   .get('/bespoke-prices', async () => {
@@ -261,14 +355,14 @@ export const app = new Elysia({ prefix: '/api' })
 
   .get('/uploads/:name', async ({ params, set }) => {
     // Hanya untuk pengembangan lokal; di produksi foto ada di Vercel Blob
-    if (isProd() || !/^[a-f0-9]{32}\.(jpg|png|webp)$/.test(params.name)) {
+    if (isProd() || !/^[a-f0-9]{32}\.(jpg|png|webp|mp3)$/.test(params.name)) {
       set.status = 404;
       return { error: 'Tidak ditemukan' };
     }
     try {
       const data = await readFile(join(UPLOAD_DIR, params.name));
       const ext = params.name.split('.')[1];
-      set.headers['content-type'] = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      set.headers['content-type'] = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'mp3' ? 'audio/mpeg' : 'image/jpeg';
       set.headers['cache-control'] = 'public, max-age=31536000, immutable';
       return new Response(data, { headers: set.headers as Record<string, string> });
     } catch {
@@ -337,8 +431,11 @@ export const app = new Elysia({ prefix: '/api' })
       return { error: `Login dikunci. Coba lagi dalam ${Math.ceil(gate.retryAfter / 60)} menit.` };
     }
     const stored = process.env.ADMIN_PASSWORD_HASH ?? '';
-    const ok = stored ? await verifyPassword(body.password, stored) : false;
-    if (!ok) {
+    const storedUndangan = process.env.INVITATION_ADMIN_PASSWORD_HASH ?? '';
+    let role: AdminRole | null = null;
+    if (stored && await verifyPassword(body.password, stored)) role = 'main';
+    else if (storedUndangan && await verifyPassword(body.password, storedUndangan)) role = 'undangan';
+    if (!role) {
       if (describeHash(stored) !== 'format benar') {
         console.error('Login admin gagal: ADMIN_PASSWORD_HASH ' + describeHash(stored));
       }
@@ -361,9 +458,9 @@ export const app = new Elysia({ prefix: '/api' })
       return { error: `Password salah. Sisa ${fail.remaining} percobaan sebelum dikunci ${LOCK_MS / 60000} menit.` };
     }
     await clearFailedLogins(ipHash);
-    const { token, expires } = await createSession();
+    const { token, expires } = await createSession(role);
     set.headers['set-cookie'] = sessionCookie(token, expires);
-    return { ok: true };
+    return { ok: true, role };
   }, { body: t.Object({ password: text(1, 200) }) })
 
   // ---------- Pemulihan blokir login (token dari email) ----------
@@ -382,7 +479,7 @@ export const app = new Elysia({ prefix: '/api' })
 
   // ---------- Area admin (wajib login + CSRF) ----------
   .group('/admin', (admin) => admin
-    .get('/session', () => ({ ok: true }))
+    .get('/session', async ({ request }) => ({ ok: true, role: await sessionRole(getCookie(request, SESSION_COOKIE)) }))
 
     .post('/logout', async ({ request, set }) => {
       await destroySession(getCookie(request, SESSION_COOKIE));
@@ -469,7 +566,7 @@ export const app = new Elysia({ prefix: '/api' })
       }
       const id = 'prod_' + randomUUID().replace(/-/g, '').slice(0, 16);
       await getDb().insert(schema.products).values({
-        id, ...body, originalPrice: normalizeOriginalPrice(body.price, body.originalPrice), categoryName, rating: 50, reviews: 1,
+        id, ...body, originalPrice: normalizeOriginalPrice(body.price, body.originalPrice), demoUrl: body.demoUrl || null, categoryName, rating: 50, reviews: 1,
         badge: body.badge || 'New Arrival',
       });
       return { id };
@@ -492,7 +589,7 @@ export const app = new Elysia({ prefix: '/api' })
         return { error: 'Kategori tidak ditemukan' };
       }
       await db.update(schema.products)
-        .set({ ...body, originalPrice: normalizeOriginalPrice(body.price, body.originalPrice), categoryName })
+        .set({ ...body, originalPrice: normalizeOriginalPrice(body.price, body.originalPrice), demoUrl: body.demoUrl || null, categoryName })
         .where(eq(schema.products.id, params.id));
       if (old.image !== body.image) await removeImage(old.image);
       return { ok: true };
@@ -553,6 +650,207 @@ export const app = new Elysia({ prefix: '/api' })
         }), { minItems: 1, maxItems: 50 }),
       }),
     })
+
+    // ---------- Undangan digital (Admin Utama & Admin Undangan) ----------
+    .get('/invitations', async () => {
+      const db = getDb();
+      const rows = await db.select().from(schema.invitations).orderBy(desc(schema.invitations.updatedAt)).limit(500);
+      const counts = rows.length
+        ? await db.select({
+          id: schema.invitationWishes.invitationId,
+          n: sql<number>`count(*)`,
+          waiting: sql<number>`sum(case when ${schema.invitationWishes.status} = 'menunggu' then 1 else 0 end)`,
+        }).from(schema.invitationWishes)
+          .where(inArray(schema.invitationWishes.invitationId, rows.map((r) => r.id)))
+          .groupBy(schema.invitationWishes.invitationId)
+        : [];
+      const byId = new Map(counts.map((c) => [c.id, c]));
+      return rows.map((r) => {
+        const d = parseStoredData(r.data);
+        const c = byId.get(r.id);
+        return {
+          id: r.id, slug: r.slug, status: r.status, template: r.template,
+          customerName: r.customerName, customerPhone: r.customerPhone,
+          groom: d.couple.groom.nickname, bride: d.couple.bride.nickname, dateLabel: d.dateLabel,
+          firstEvent: d.events.find((e) => e.startIso)?.startIso ?? '',
+          wishes: Number(c?.n ?? 0), waiting: Number(c?.waiting ?? 0),
+          updatedAt: r.updatedAt, publishedAt: r.publishedAt,
+        };
+      });
+    })
+
+    .post('/invitations', async ({ body, set }) => {
+      const slug = body.slug.trim().toLowerCase();
+      if (!isValidSlug(slug)) {
+        set.status = 422;
+        return { error: 'Alamat undangan hanya boleh huruf kecil, angka, dan strip (3–60 karakter)' };
+      }
+      if (await findInvitationBySlug(slug)) {
+        set.status = 409;
+        return { error: 'Alamat undangan sudah dipakai. Pilih alamat lain.' };
+      }
+      const data = newInvitationData();
+      data.couple.groom.nickname = cleanText(body.groom ?? '').slice(0, 40);
+      data.couple.bride.nickname = cleanText(body.bride ?? '').slice(0, 40);
+      const [res] = await getDb().insert(schema.invitations).values({
+        slug, status: 'draft', template: 'jawa-elegan',
+        customerName: cleanText(body.customerName), customerPhone: cleanText(body.customerPhone), note: cleanText(body.note ?? ''),
+        data: JSON.stringify(data),
+      });
+      return { id: Number(res.insertId), slug };
+    }, {
+      body: t.Object({
+        slug: text(3, 60), customerName: text(0, 120), customerPhone: text(0, 30),
+        note: t.Optional(text(0, 500)), groom: t.Optional(text(0, 40)), bride: t.Optional(text(0, 40)),
+      }),
+    })
+
+    .get('/invitations/:id', async ({ params, set }) => {
+      const row = await findInvitationById(Number(params.id));
+      if (!row) {
+        set.status = 404;
+        return { error: 'Undangan tidak ditemukan' };
+      }
+      const data = parseStoredData(row.data);
+      return {
+        id: row.id, slug: row.slug, status: row.status, template: row.template,
+        customerName: row.customerName, customerPhone: row.customerPhone, note: row.note,
+        updatedAt: row.updatedAt, publishedAt: row.publishedAt,
+        data, problems: publishProblems(data), stats: await attendanceStats(row.id),
+      };
+    }, { params: t.Object({ id: t.Numeric({ minimum: 1 }) }) })
+
+    .put('/invitations/:id', async ({ params, body, set }) => {
+      const db = getDb();
+      const row = await findInvitationById(Number(params.id));
+      if (!row) {
+        set.status = 404;
+        return { error: 'Undangan tidak ditemukan' };
+      }
+      const slug = body.slug.trim().toLowerCase();
+      if (slug !== row.slug) {
+        if (!isValidSlug(slug)) {
+          set.status = 422;
+          return { error: 'Alamat undangan hanya boleh huruf kecil, angka, dan strip (3–60 karakter)' };
+        }
+        if (await findInvitationBySlug(slug)) {
+          set.status = 409;
+          return { error: 'Alamat undangan sudah dipakai. Pilih alamat lain.' };
+        }
+      }
+      const data = normalizeInvitationData(body.data);
+      if (row.status === 'terbit') {
+        const problems = publishProblems(data);
+        if (problems.length) {
+          set.status = 422;
+          return { error: `Undangan sudah terbit, data wajib tidak boleh kosong: ${problems.join('; ')}` };
+        }
+      }
+      const json = JSON.stringify(data);
+      if (json.length > 200_000) {
+        set.status = 413;
+        return { error: 'Isi undangan terlalu panjang' };
+      }
+      // Foto/musik lama yang tidak dipakai lagi dihapus dari penyimpanan
+      const before = mediaUrls(parseStoredData(row.data));
+      const after = new Set(mediaUrls(data));
+      await db.update(schema.invitations).set({
+        slug, data: json, updatedAt: new Date(),
+        customerName: cleanText(body.customerName), customerPhone: cleanText(body.customerPhone), note: cleanText(body.note),
+      }).where(eq(schema.invitations.id, row.id));
+      for (const url of before) if (!after.has(url)) await removeImage(url);
+      return { ok: true, slug, data, problems: publishProblems(data) };
+    }, {
+      params: t.Object({ id: t.Numeric({ minimum: 1 }) }),
+      body: t.Object({
+        slug: text(3, 60), customerName: text(0, 120), customerPhone: text(0, 30), note: text(0, 500),
+        data: t.Record(t.String(), t.Unknown()),
+      }),
+    })
+
+    .post('/invitations/:id/status', async ({ params, body, set }) => {
+      const row = await findInvitationById(Number(params.id));
+      if (!row) {
+        set.status = 404;
+        return { error: 'Undangan tidak ditemukan' };
+      }
+      if (body.status === 'terbit') {
+        const problems = publishProblems(parseStoredData(row.data));
+        if (problems.length) {
+          set.status = 422;
+          return { error: `Belum bisa diterbitkan: ${problems.join('; ')}` };
+        }
+      }
+      await getDb().update(schema.invitations).set({
+        status: body.status, updatedAt: new Date(),
+        publishedAt: body.status === 'terbit' ? (row.publishedAt ?? new Date()) : row.publishedAt,
+      }).where(eq(schema.invitations.id, row.id));
+      return { ok: true, status: body.status };
+    }, {
+      params: t.Object({ id: t.Numeric({ minimum: 1 }) }),
+      body: t.Object({ status: t.Union(INVITATION_STATUSES.map((s) => t.Literal(s))) }),
+    })
+
+    .delete('/invitations/:id', async ({ params, set }) => {
+      const db = getDb();
+      const row = await findInvitationById(Number(params.id));
+      if (!row) {
+        set.status = 404;
+        return { error: 'Undangan tidak ditemukan' };
+      }
+      if (row.status === 'terbit') {
+        set.status = 409;
+        return { error: 'Undangan yang sedang terbit tidak bisa dihapus. Arsipkan dulu.' };
+      }
+      await db.delete(schema.invitationWishes).where(eq(schema.invitationWishes.invitationId, row.id));
+      await db.delete(schema.invitations).where(eq(schema.invitations.id, row.id));
+      for (const url of mediaUrls(parseStoredData(row.data))) await removeImage(url);
+      return { ok: true };
+    }, { params: t.Object({ id: t.Numeric({ minimum: 1 }) }) })
+
+    // Unggah foto (JPG/PNG/WebP) atau musik (MP3) untuk undangan
+    .post('/invitations/upload', async ({ body, set }) => {
+      const file = body.file;
+      if (file.size > MAX_UPLOAD_BYTES) {
+        set.status = 413;
+        return { error: 'Berkas terlalu besar (maks 4 MB)' };
+      }
+      const buf = new Uint8Array(await file.arrayBuffer());
+      const type = detectImageType(buf);
+      if (type) {
+        const contentType = type === 'png' ? 'image/png' : type === 'webp' ? 'image/webp' : 'image/jpeg';
+        return { url: await storeImage(buf, type, contentType, 'invitations'), kind: 'image' };
+      }
+      if (isMp3(buf)) return { url: await storeImage(buf, 'mp3', 'audio/mpeg', 'invitations'), kind: 'audio' };
+      set.status = 415;
+      return { error: 'Hanya foto JPG, PNG, WebP, atau musik MP3' };
+    }, { body: t.Object({ file: t.File() }) })
+
+    .get('/invitations/:id/wishes', async ({ params }) => {
+      const rows = await getDb().select().from(schema.invitationWishes)
+        .where(eq(schema.invitationWishes.invitationId, Number(params.id)))
+        .orderBy(desc(schema.invitationWishes.createdAt), desc(schema.invitationWishes.id))
+        .limit(2000);
+      return rows.map((w) => ({
+        id: w.id, name: w.name, message: w.message, attendance: w.attendance, guests: w.guests,
+        status: w.status, createdAt: w.createdAt,
+      }));
+    }, { params: t.Object({ id: t.Numeric({ minimum: 1 }) }) })
+
+    .patch('/invitations/:id/wishes/:wid', async ({ params, body }) => {
+      await getDb().update(schema.invitationWishes).set({ status: body.status })
+        .where(and(eq(schema.invitationWishes.id, Number(params.wid)), eq(schema.invitationWishes.invitationId, Number(params.id))));
+      return { ok: true };
+    }, {
+      params: t.Object({ id: t.Numeric({ minimum: 1 }), wid: t.Numeric({ minimum: 1 }) }),
+      body: t.Object({ status: t.Union([t.Literal('tampil'), t.Literal('sembunyi')]) }),
+    })
+
+    .delete('/invitations/:id/wishes/:wid', async ({ params }) => {
+      await getDb().delete(schema.invitationWishes)
+        .where(and(eq(schema.invitationWishes.id, Number(params.wid)), eq(schema.invitationWishes.invitationId, Number(params.id))));
+      return { ok: true };
+    }, { params: t.Object({ id: t.Numeric({ minimum: 1 }), wid: t.Numeric({ minimum: 1 }) }) })
 
     .get('/orders', async () => {
       const db = getDb();

@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import { hashPassword } from './lib/password';
 
 const PASSWORD = 'correct-horse-battery-staple';
+const PASSWORD_UNDANGAN = 'undangan-elegan-jawa-2027';
 const ORIGIN = 'http://localhost:5173';
 process.env.ALLOWED_ORIGIN = ORIGIN;
 process.env.ADMIN_PASSWORD_HASH = await hashPassword(PASSWORD);
+process.env.INVITATION_ADMIN_PASSWORD_HASH = await hashPassword(PASSWORD_UNDANGAN);
 delete process.env.BLOB_READ_WRITE_TOKEN;
 delete process.env.BLOB_STORE_ID;
 
@@ -35,8 +37,17 @@ async function login(ip = newIp()): Promise<string> {
   return setCookie.split(';')[0];
 }
 
+async function loginUndangan(ip = newIp()): Promise<string> {
+  const res = await call('/api/admin/login', { method: 'POST', ip, ...json({ password: PASSWORD_UNDANGAN }) });
+  assert.equal(res.status, 200);
+  assert.equal(((await res.json()) as any).role, 'undangan');
+  return res.headers.get('set-cookie')!.split(';')[0];
+}
+
 before(async () => {
   const db = getDb();
+  await db.delete(schema.invitationWishes);
+  await db.delete(schema.invitations);
   await db.delete(schema.sessions);
   await db.delete(schema.loginAttempts);
   await db.delete(schema.loginBlocks);
@@ -400,6 +411,215 @@ test('pesanan: payload XSS disimpan apa adanya tapi hanya admin yang bisa membac
   const cookie = await login();
   const list = await (await call('/api/admin/orders', { cookie })).json() as any[];
   assert.ok(list.some((x) => x.recipient === xss)); // frontend wajib meng-escape saat menampilkan
+});
+
+// ---------- Undangan digital (tahap 2) ----------
+const FILLED = {
+  couple: {
+    groom: { nickname: 'Bima', fullName: 'Bima Saputra', photo: 'javascript:alert(1)', instagram: '@bima.ok', hacker: 'x' },
+    bride: { nickname: 'Sekar', fullName: 'Sekar Ayu', photo: 'https://evil.example/x.jpg', instagram: 'bad handle!' },
+  },
+  dateLabel: 'Minggu, 5 September 2027',
+  events: [
+    { title: 'Akad', startIso: '2027-09-05T08:00:00+07:00', endIso: '2027-09-05T10:00:00+07:00', mapsUrl: 'https://maps.app.goo.gl/abc', venueName: 'Masjid <b>Contoh</b>' },
+    { title: 'Resepsi', startIso: 'bukan-tanggal', mapsUrl: 'javascript:alert(1)' },
+  ],
+  photos: { cover: '/assets/undangan/og-undangan.jpg', gallery: ['/assets/a.jpg', 'http://x/y.jpg'] },
+  music: { src: '/assets/undangan/foto/bunga-krem.webp' },
+  rsvp: { enabled: true, maxGuests: 99 },
+  wishes: { enabled: true, requireApproval: false },
+  extra: 'dibuang',
+};
+
+async function createInvitation(cookie: string, slug: string) {
+  const res = await call('/api/admin/invitations', { method: 'POST', cookie, ...json({ slug, customerName: 'Pelanggan Uji', customerPhone: '0812000' }) });
+  assert.equal(res.status, 200);
+  return ((await res.json()) as any).id as number;
+}
+async function saveInvitation(cookie: string, id: number, slug: string, data: unknown) {
+  return call(`/api/admin/invitations/${id}`, { method: 'PUT', cookie, ...json({ slug, customerName: 'Pelanggan Uji', customerPhone: '0812000', note: '', data }) });
+}
+const wish = (slug: string, body: unknown, ip = newIp(), header = true) => call(`/api/invitations/${slug}/wishes`, {
+  method: 'POST', admin: false, ip,
+  body: JSON.stringify(body),
+  headers: { 'content-type': 'application/json', ...(header ? { 'x-requested-with': 'dyflorist' } : {}) },
+});
+
+test('Admin Undangan: login terpisah, hanya bisa membuka menu undangan', async () => {
+  const cookie = await loginUndangan();
+  const s = await call('/api/admin/session', { cookie });
+  assert.equal(((await s.json()) as any).role, 'undangan');
+  assert.equal((await call('/api/admin/invitations', { cookie })).status, 200);
+  for (const [method, path] of [['GET', '/api/admin/orders'], ['POST', '/api/admin/products'], ['POST', '/api/admin/upload'], ['PUT', '/api/admin/bespoke-prices'], ['DELETE', '/api/admin/orders']]) {
+    const res = await call(path, { method, cookie });
+    assert.equal(res.status, 403, `${method} ${path} harus 403 untuk Admin Undangan, dapat ${res.status}`);
+  }
+  // Admin utama tetap bisa mengelola undangan
+  const main = await login();
+  assert.equal(((await (await call('/api/admin/session', { cookie: main })).json()) as any).role, 'main');
+  assert.equal((await call('/api/admin/invitations', { cookie: main })).status, 200);
+  // Tanpa login: 401
+  assert.equal((await call('/api/admin/invitations')).status, 401);
+  assert.equal((await call('/api/admin/invitations', { method: 'POST', ...json({ slug: 'x-y-z', customerName: '', customerPhone: '' }) })).status, 401);
+});
+
+test('undangan: alamat (slug) divalidasi, dicadangkan, dan tidak boleh ganda', async () => {
+  const cookie = await loginUndangan();
+  for (const slug of ['Bima Sekar', 'ab', '-awal', 'akhir-', 'demo', 'admin', 'a--b', '../etc']) {
+    const res = await call('/api/admin/invitations', { method: 'POST', cookie, ...json({ slug, customerName: '', customerPhone: '' }) });
+    assert.ok([422].includes(res.status), `slug "${slug}" harus ditolak, dapat ${res.status}`);
+  }
+  await createInvitation(cookie, 'slug-ganda');
+  const dup = await call('/api/admin/invitations', { method: 'POST', cookie, ...json({ slug: 'slug-ganda', customerName: '', customerPhone: '' }) });
+  assert.equal(dup.status, 409);
+});
+
+test('undangan: isian dirapikan server (media/peta/IG tidak aman dibuang, field asing dibuang)', async () => {
+  const cookie = await loginUndangan();
+  const id = await createInvitation(cookie, 'bima-sekar-rapi');
+  const res = await saveInvitation(cookie, id, 'bima-sekar-rapi', FILLED);
+  assert.equal(res.status, 200);
+  const { data } = await res.json() as any;
+  assert.equal(data.couple.groom.photo, '');
+  assert.equal(data.couple.bride.photo, '');
+  assert.equal(data.couple.groom.instagram, 'bima.ok');
+  assert.equal(data.couple.bride.instagram, '');
+  assert.equal(data.couple.groom.hacker, undefined);
+  assert.equal(data.extra, undefined);
+  assert.equal(data.events[0].mapsUrl, 'https://maps.app.goo.gl/abc');
+  assert.equal(data.events[1].mapsUrl, '');
+  assert.equal(data.events[1].startIso, '');
+  assert.equal(data.events[0].venueName, 'Masjid <b>Contoh</b>'); // disimpan sebagai teks, halaman menampilkan lewat textContent
+  assert.deepEqual(data.photos.gallery, ['/assets/a.jpg']);
+  assert.equal(data.music.src, ''); // bukan MP3
+  assert.equal(data.rsvp.maxGuests, 10);
+});
+
+test('undangan: draft hanya bisa dilihat admin, terbit publik, arsip 410, data pelanggan tidak bocor', async () => {
+  const cookie = await loginUndangan();
+  const id = await createInvitation(cookie, 'bima-sekar');
+  // Belum lengkap: tidak bisa terbit
+  const early = await call(`/api/admin/invitations/${id}/status`, { method: 'POST', cookie, ...json({ status: 'terbit' }) });
+  assert.equal(early.status, 422);
+  assert.equal((await saveInvitation(cookie, id, 'bima-sekar', FILLED)).status, 200);
+
+  assert.equal((await call('/api/invitations/bima-sekar')).status, 404); // draft, tanpa login
+  const preview = await call('/api/invitations/bima-sekar', { cookie });
+  assert.equal(preview.status, 200);
+  assert.equal(((await preview.json()) as any).isPreview, true);
+  assert.equal(preview.headers.get('cache-control'), 'no-store');
+
+  assert.equal((await call(`/api/admin/invitations/${id}/status`, { method: 'POST', cookie, ...json({ status: 'terbit' }) })).status, 200);
+  const pub = await call('/api/invitations/bima-sekar');
+  assert.equal(pub.status, 200);
+  const raw = await pub.text();
+  const d = JSON.parse(raw);
+  assert.equal(d.couple.groom.nickname, 'Bima');
+  assert.equal(d.isPreview, false);
+  assert.ok(!raw.includes('0812000') && !raw.includes('Pelanggan Uji'), 'nomor/nama pemesan tidak boleh ikut ke publik');
+
+  // Sedang terbit: tidak bisa dihapus, data wajib tidak boleh dikosongkan
+  assert.equal((await call(`/api/admin/invitations/${id}`, { method: 'DELETE', cookie })).status, 409);
+  assert.equal((await saveInvitation(cookie, id, 'bima-sekar', { ...FILLED, couple: { groom: {}, bride: {} } })).status, 422);
+
+  assert.equal((await call(`/api/admin/invitations/${id}/status`, { method: 'POST', cookie, ...json({ status: 'arsip' }) })).status, 200);
+  assert.equal((await call('/api/invitations/bima-sekar')).status, 410);
+  assert.equal((await call(`/api/admin/invitations/${id}`, { method: 'DELETE', cookie })).status, 200);
+  assert.equal((await call('/api/invitations/bima-sekar')).status, 404);
+});
+
+test('ucapan tamu: tersimpan, tampil, statistik kehadiran, moderasi, dan perlindungan', async () => {
+  const cookie = await loginUndangan();
+  const id = await createInvitation(cookie, 'ucapan-uji');
+  await saveInvitation(cookie, id, 'ucapan-uji', FILLED);
+  assert.equal((await wish('ucapan-uji', { name: 'A', message: 'B', attendance: 'hadir' })).status, 404); // masih draft
+  await call(`/api/admin/invitations/${id}/status`, { method: 'POST', cookie, ...json({ status: 'terbit' }) });
+
+  assert.equal((await wish('ucapan-uji', { name: 'A', message: 'B', attendance: 'hadir' }, newIp(), false)).status, 403); // tanpa header
+  assert.equal((await wish('ucapan-uji', { name: 'A', message: 'B' })).status, 422); // kehadiran wajib
+  assert.equal((await wish('ucapan-uji', { name: 'A', message: 'B', attendance: 'mungkin' })).status, 422);
+  assert.equal((await wish('ucapan-uji', { name: 'A'.repeat(61), message: 'B', attendance: 'hadir' })).status, 422);
+
+  const ok = await wish('ucapan-uji', { name: '<img src=x onerror=alert(1)>', message: 'Selamat!', attendance: 'hadir', guests: 9 });
+  assert.equal(ok.status, 200);
+  assert.equal(((await ok.json()) as any).status, 'tampil');
+  await wish('ucapan-uji', { name: 'Tamu Dua', message: 'Maaf tidak bisa hadir', attendance: 'tidak' });
+
+  let d = await (await call('/api/invitations/ucapan-uji')).json() as any;
+  assert.equal(d.wishes.items.length, 2);
+  assert.equal(d.wishes.items[1].name, '<img src=x onerror=alert(1)>'); // disimpan sebagai teks
+  assert.deepEqual(d.rsvp.stats, { hadir: 1, tidak: 1, ragu: 0 });
+  assert.equal(d.wishes.items[0].ipHash, undefined);
+
+  // Admin: jumlah tamu dibatasi maxGuests (10), sembunyikan ucapan
+  const detail = await (await call(`/api/admin/invitations/${id}`, { cookie })).json() as any;
+  assert.equal(detail.stats.tamuHadir, 9);
+  const list = await (await call(`/api/admin/invitations/${id}/wishes`, { cookie })).json() as any[];
+  const target = list.find((w) => w.name === 'Tamu Dua');
+  assert.equal((await call(`/api/admin/invitations/${id}/wishes/${target.id}`, { method: 'PATCH', cookie, ...json({ status: 'sembunyi' }) })).status, 200);
+  d = await (await call('/api/invitations/ucapan-uji')).json() as any;
+  assert.equal(d.wishes.items.length, 1);
+  assert.deepEqual(d.rsvp.stats, { hadir: 1, tidak: 0, ragu: 0 });
+
+  // Persetujuan admin: ucapan baru menunggu, belum tampil, tetap terhitung kehadirannya
+  await saveInvitation(cookie, id, 'ucapan-uji', { ...FILLED, wishes: { enabled: true, requireApproval: true } });
+  const pending = await wish('ucapan-uji', { name: 'Tamu Tiga', message: 'Insya Allah', attendance: 'ragu' });
+  assert.equal(((await pending.json()) as any).status, 'menunggu');
+  d = await (await call('/api/invitations/ucapan-uji')).json() as any;
+  assert.ok(!d.wishes.items.some((w: any) => w.name === 'Tamu Tiga'));
+  assert.equal(d.rsvp.stats.ragu, 1);
+
+  // Rate limit: maks 5 ucapan / 10 menit per IP per undangan
+  const ip = newIp();
+  for (let i = 0; i < 5; i++) assert.equal((await wish('ucapan-uji', { name: 'Spam', message: `ke-${i}`, attendance: 'hadir' }, ip)).status, 200);
+  assert.equal((await wish('ucapan-uji', { name: 'Spam', message: 'ke-6', attendance: 'hadir' }, ip)).status, 429);
+});
+
+test('pratinjau link undangan (WhatsApp): judul nama mempelai, nama tamu di-escape, draft tidak bocor', async () => {
+  const cookie = await loginUndangan();
+  const id = await createInvitation(cookie, 'og-uji');
+  await saveInvitation(cookie, id, 'og-uji', FILLED);
+  let html = await (await call('/api/invitation-share/og-uji')).text();
+  assert.ok(!html.includes('Bima'), 'draft tidak boleh tampil di pratinjau');
+  await call(`/api/admin/invitations/${id}/status`, { method: 'POST', cookie, ...json({ status: 'terbit' }) });
+  const res = await call('/api/invitation-share/og-uji?to=' + encodeURIComponent('<script>x</script> Pak "Budi"'));
+  assert.equal(res.status, 200);
+  html = await res.text();
+  assert.ok(html.includes('og:title" content="The Wedding of Bima &amp; Sekar"'));
+  assert.ok(html.includes('og:image" content="https://www.dyflorist.site/assets/undangan/og-undangan.jpg"'));
+  assert.ok(!html.includes('<script>') && html.includes('&lt;script&gt;'));
+  assert.ok(html.includes('Kepada Yth.'));
+  const demo = await (await call('/api/invitation-share/demo')).text();
+  assert.ok(demo.includes('Rizky &amp; Nadia'));
+});
+
+test('unggah undangan: MP3 & foto diterima, file lain ditolak', async () => {
+  const cookie = await loginUndangan();
+  const send = async (bytes: number[], name: string) => {
+    const fd = new FormData();
+    fd.append('file', new File([new Uint8Array([...bytes, ...new Array(64).fill(0)])], name));
+    return call('/api/admin/invitations/upload', { method: 'POST', cookie, body: fd });
+  };
+  const mp3 = await send([0x49, 0x44, 0x33, 0x04], 'lagu.mp3');
+  assert.equal(mp3.status, 200);
+  assert.match(((await mp3.json()) as any).url, /^\/api\/uploads\/[a-f0-9]{32}\.mp3$/);
+  assert.equal((await send([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 'foto.png')).status, 200);
+  assert.equal((await send([0x3c, 0x73, 0x76, 0x67], 'gambar.svg')).status, 415);
+  assert.equal((await send([0x4d, 0x5a], 'virus.mp3')).status, 415);
+});
+
+test('produk: link demo undangan hanya boleh halaman undangan situs ini', async () => {
+  const cookie = await login();
+  const base = { name: 'Undangan Jawa Elegan', category: 'undangan', price: 150000, badge: '', description: 'Undangan digital', image: '/assets/produk-1.jpg' };
+  const bad = await call('/api/admin/products', { method: 'POST', cookie, ...json({ ...base, demoUrl: 'https://evil.example/undangan' }) });
+  assert.equal(bad.status, 422);
+  const res = await call('/api/admin/products', { method: 'POST', cookie, ...json({ ...base, demoUrl: '/undangan/demo' }) });
+  if (res.status === 422) return; // kategori "undangan" tidak ada di database uji
+  assert.equal(res.status, 200);
+  const { id } = await res.json() as any;
+  const list = await (await call('/api/products')).json() as any[];
+  assert.equal(list.find((p) => p.id === id).demoUrl, '/undangan/demo');
+  await call(`/api/admin/products/${id}`, { method: 'DELETE', cookie });
 });
 
 test('error server tidak membocorkan detail & body rusak ditolak', async () => {

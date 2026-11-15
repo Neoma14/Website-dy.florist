@@ -22,9 +22,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <script type="module" crossorigin src="/assets/main-Demcuy0p.js"></script>
+  <script type="module" crossorigin src="/assets/main-DLgPd0vh.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-P2Xu9kJm.js">
-  <link rel="stylesheet" crossorigin href="/assets/main-BsNvvmdI.css">
+  <link rel="stylesheet" crossorigin href="/assets/main-C_SSh_yJ.css">
 </head>
 <body>
   <!-- Top Announcement Bar -->
@@ -713,6 +713,7 @@
           <button class="admin-tab" data-tab="categories" data-click="switchAdminTab('categories')">🏷️ Kategori (<span id="adminCategoriesCount">0</span>)</button>
           <button class="admin-tab" data-tab="bespoke" data-click="switchAdminTab('bespoke')">💐 Harga Bespoke</button>
           <button class="admin-tab" data-tab="orders" data-click="switchAdminTab('orders')">📋 Riwayat Order (<span id="adminOrdersCount">0</span>)</button>
+          <a class="admin-tab admin-tab-link" href="/admin/undangan">💌 Undangan Digital ↗</a>
           <div class="admin-nav-spacer"></div>
           <button class="btn-logout" data-click="handleAdminLogout()">Keluar 🚪</button>
         </div>
@@ -771,6 +772,12 @@
             <div class="form-group">
               <label for="prodBadge">Badge Label (Opsional)</label>
               <input type="text" id="prodBadge" placeholder="Contoh: Best Seller, New, Signature">
+            </div>
+
+            <div class="form-group">
+              <label for="prodDemoUrl">Link Contoh Undangan (Opsional)</label>
+              <input type="text" id="prodDemoUrl" maxlength="70" placeholder="/undangan/demo" pattern="/undangan/[a-z0-9-]{1,60}">
+              <small class="form-hint">Khusus produk undangan digital: menampilkan tombol "Lihat Contoh" di detail produk.</small>
             </div>
 
             <div class="form-group">

@@ -2375,6 +2375,12 @@ button {
   color: #fff;
 }
 
+.admin-tab-link {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
 .admin-nav-spacer {
   flex-grow: 1;
 }

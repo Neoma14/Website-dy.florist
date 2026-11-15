@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin Undangan — dy.florist</title>
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./undangan-admin.css">
+</head>
+<body class="ua">
+  <header class="ua-top">
+    <a class="ua-brand" href="/admin/undangan">
+      <img src="/assets/logo-web.png" alt="dy.florist" width="40" height="40">
+      <span><strong>Admin Undangan</strong><small>Undangan Digital dy.florist</small></span>
+    </a>
+    <nav class="ua-top-actions" id="uaTopActions" hidden>
+      <span class="ua-role" id="uaRole"></span>
+      <a class="ua-btn ghost" id="uaMainAdmin" href="/admin" hidden>Admin Utama</a>
+      <button type="button" class="ua-btn ghost" id="uaLogout">Keluar</button>
+    </nav>
+  </header>
+
+  <main class="ua-main">
+    <section class="ua-login" id="uaLogin" hidden>
+      <h1>Masuk Admin Undangan</h1>
+      <p>Gunakan password Admin Undangan (atau password admin utama).</p>
+      <form id="uaLoginForm" autocomplete="on">
+        <label for="uaPassword">Password</label>
+        <input type="password" id="uaPassword" autocomplete="current-password" required>
+        <p class="ua-alert" id="uaLoginAlert" hidden></p>
+        <button type="submit" class="ua-btn">Masuk</button>
+      </form>
+    </section>
+
+    <section id="uaList" hidden></section>
+    <section id="uaEditor" hidden></section>
+  </main>
+
+  <div class="ua-modal" id="uaModal" hidden>
+    <div class="ua-modal-card" role="dialog" aria-modal="true" aria-labelledby="uaModalTitle">
+      <h2 id="uaModalTitle"></h2>
+      <div id="uaModalBody"></div>
+    </div>
+  </div>
+  <div class="ua-toast" id="uaToast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="./undangan-admin.js"></script>
+</body>
+</html>

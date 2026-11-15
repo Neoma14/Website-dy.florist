@@ -1,4 +1,5 @@
-// Membuat ADMIN_PASSWORD_HASH. Password diketik tersembunyi (tampil bintang),
+// Membuat ADMIN_PASSWORD_HASH (atau INVITATION_ADMIN_PASSWORD_HASH dengan argumen 'undangan').
+// Password diketik tersembunyi (tampil bintang),
 // hanya hash yang disalin ke clipboard. Password asli tidak disimpan di mana pun.
 import { execSync } from 'node:child_process';
 import { hashPassword } from '../server/lib/password';
@@ -46,7 +47,9 @@ function askHidden(question: string): Promise<string> {
   });
 }
 
-const pw = await askHidden('Password admin baru (min 12 karakter): ');
+const TARGET = process.argv[2] === 'undangan' ? 'INVITATION_ADMIN_PASSWORD_HASH' : 'ADMIN_PASSWORD_HASH';
+const WHO = TARGET === 'ADMIN_PASSWORD_HASH' ? 'admin utama' : 'Admin Undangan';
+const pw = await askHidden(`Password ${WHO} baru (min 12 karakter): `);
 if (pw.length < 12) {
   console.error('Terlalu pendek (minimal 12 karakter).');
   process.exit(1);
@@ -60,6 +63,7 @@ if (again !== pw) {
 const hash = await hashPassword(pw);
 execSync('clip', { input: hash });
 console.log('\nHash password berhasil dibuat dan DISALIN ke clipboard.');
-console.log('Tempel (Ctrl+V) di Vercel sebagai ADMIN_PASSWORD_HASH (Type: Secret).');
+console.log(`Tempel (Ctrl+V) di Vercel sebagai ${TARGET} (Type: Secret).`);
+if (TARGET !== 'ADMIN_PASSWORD_HASH') console.log('Gunakan password yang BERBEDA dari password admin utama.');
 console.log('Catat password asli Anda di password manager; hash tidak bisa dikembalikan jadi password.');
 process.exit(0);

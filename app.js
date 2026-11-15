@@ -1406,10 +1406,15 @@ window.openQuickView = function(productId) {
           <div class="modal-price-wrap">${priceHtml(product, 'modal')}</div>
           <p class="modal-desc">${esc(product.description)}</p>
           
+          ${product.demoUrl && /^\/undangan\/[a-z0-9-]{1,60}$/.test(product.demoUrl) ? `
+          <div class="modal-meta-box">
+            <div>💌 <strong>Undangan digital:</strong> nama, foto, acara, dan rekening disesuaikan dengan data Anda. Termasuk link khusus per tamu & ucapan/RSVP.</div>
+          </div>
+          <a href="${esc(product.demoUrl)}" target="_blank" rel="noopener" class="btn btn-glass" style="margin-bottom: 12px;">Lihat Contoh Undangan ↗</a>` : `
           <div class="modal-meta-box">
             <div>🌿 <strong>Dirangkai khusus:</strong> dibuat oleh florist kami sesuai pesanan Anda</div>
             <div style="margin-top: 4px;">🎁 <strong>Gratis:</strong> kartu ucapan custom & pita satin</div>
-          </div>
+          </div>`}
 
           <div style="display: flex; gap: 12px; margin-top: auto;">
             <button class="btn btn-primary" style="flex: 1;" data-click="addToCart('${esc(product.id)}'); closeQuickView();">
@@ -1559,7 +1564,9 @@ window.openAdminModal = async function() {
 
   showAdminLogin();
   try {
-    await api('/admin/session');
+    const session = await api('/admin/session');
+    // Admin Undangan punya dasbor sendiri
+    if (session && session.role === 'undangan') { location.href = '/admin/undangan'; return; }
     isAdminLoggedIn = true;
     await showAdminDashboard();
   } catch (e) {
@@ -1660,7 +1667,8 @@ window.handleAdminLogin = async function() {
   const submitBtn = document.querySelector('#adminLoginForm button[type="submit"]');
   if (submitBtn) submitBtn.disabled = true;
   try {
-    await api('/admin/login', { method: 'POST', json: { password } });
+    const out = await api('/admin/login', { method: 'POST', json: { password } });
+    if (out && out.role === 'undangan') { location.href = '/admin/undangan'; return; }
     setLoginAlert('');
     isAdminLoggedIn = true;
     if (pwInput) pwInput.value = '';
@@ -1867,6 +1875,7 @@ window.startEditProduct = function(id) {
   document.getElementById('prodPrice').value = item.price;
   document.getElementById('prodOriginalPrice').value = item.originalPrice || '';
   document.getElementById('prodBadge').value = item.badge || '';
+  document.getElementById('prodDemoUrl').value = item.demoUrl || '';
   window.updateDiscountHint();
   document.getElementById('prodImage').value = item.image;
   document.getElementById('prodDescription').value = item.description || '';
@@ -1942,10 +1951,16 @@ window.saveAdminProduct = async function() {
     price: parseInt(document.getElementById('prodPrice').value, 10),
     originalPrice: parseInt(document.getElementById('prodOriginalPrice').value, 10) || null,
     badge: document.getElementById('prodBadge').value.trim(),
+    demoUrl: document.getElementById('prodDemoUrl').value.trim() || null,
     image: document.getElementById('prodImage').value.trim(),
     description: document.getElementById('prodDescription').value.trim()
   };
 
+  if (payload.demoUrl && !/^\/undangan\/[a-z0-9-]{1,60}$/.test(payload.demoUrl)) {
+    showToast('Link contoh harus berbentuk /undangan/nama-undangan (mis. /undangan/demo).');
+    document.getElementById('prodDemoUrl').focus();
+    return;
+  }
   if (!payload.image) {
     showToast('Silakan upload foto produk terlebih dahulu.');
     return;
