@@ -21,6 +21,7 @@ import"./modulepreload-polyfill-P2Xu9kJm.js";function e(e){return String(e??``).
       <div class="product-info">
         <div class="product-category-meta">${e(t.categoryName)}</div>
         <h3 class="product-title">${e(t.name)}</h3>
+        ${t.demoUrl&&/^\/undangan\/[a-z0-9-]{1,60}$/.test(t.demoUrl)?`<a class="product-demo-link" href="${e(t.demoUrl)}" target="_blank" rel="noopener">💌 Lihat contoh undangan ↗</a>`:``}
         <div class="product-price-row">
           ${r(t)}
           <button class="add-cart-icon-btn" data-click="addToCart('${e(t.id)}')" title="Tambah ke Keranjang" aria-label="Tambah ${e(t.name)} ke Keranjang">

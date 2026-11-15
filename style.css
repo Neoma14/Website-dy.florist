@@ -802,6 +802,19 @@ button {
   line-height: 1.35;
 }
 
+.product-demo-link {
+  display: inline-block;
+  margin: -2px 0 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.product-demo-link:hover {
+  text-decoration: underline;
+}
+
 .product-rating {
   display: flex;
   align-items: center;

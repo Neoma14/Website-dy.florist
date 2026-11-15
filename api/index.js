@@ -67,7 +67,7 @@ var DEMO_INVITATION = {
       childOrder: "Putra pertama dari",
       father: "Bapak Ahmad Santoso",
       mother: "Ibu Sri Wahyuni",
-      photo: "",
+      photo: "/assets/undangan/contoh/mempelai-pria.jpg",
       instagram: "rizky.contoh"
     },
     bride: {
@@ -76,7 +76,7 @@ var DEMO_INVITATION = {
       childOrder: "Putri kedua dari",
       father: "Bapak Hendra Gunawan",
       mother: "Ibu Rina Marlina",
-      photo: "",
+      photo: "/assets/undangan/contoh/mempelai-wanita.jpg",
       instagram: "nadia.contoh"
     }
   },
@@ -120,7 +120,13 @@ var DEMO_INVITATION = {
     { title: "Tumbuh Bersama", period: "2023", body: "Hari demi hari kami belajar saling memahami, saling menguatkan, dan menemukan bahwa kebersamaan adalah tempat paling nyaman untuk pulang." },
     { title: "Lamaran", period: "2026", body: "Dengan restu kedua orang tua, kami memantapkan langkah untuk melanjutkan hubungan ini ke jenjang pernikahan." }
   ],
-  photos: { cover: "", couple: "", closing: "", gallery: [] },
+  // Foto contoh (bukan pasangan sungguhan pemesan dy.florist)
+  photos: {
+    cover: "/assets/undangan/contoh/prewed-berdiri.jpg",
+    couple: "/assets/undangan/contoh/prewed-duduk.jpg",
+    closing: "/assets/undangan/contoh/prewed-beskap.jpg",
+    gallery: ["/assets/undangan/contoh/prewed-duduk.jpg", "/assets/undangan/contoh/prewed-berdiri.jpg", "/assets/undangan/contoh/prewed-beskap.jpg"]
+  },
   gifts: {
     note: "Doa restu Anda merupakan karunia yang sangat berarti bagi kami. Namun jika memberi adalah ungkapan tanda kasih, Anda dapat memberi kado secara cashless.",
     accounts: [

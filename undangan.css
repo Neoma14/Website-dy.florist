@@ -263,6 +263,8 @@ body:not(.jawa) .jawa-only { display: none !important; }
 }
 .intro-content { padding: 0 28px 92px; display: flex; flex-direction: column; align-items: center; }
 .intro-gunungan { width: 58px; margin-bottom: 8px; filter: drop-shadow(0 6px 14px rgba(142,116,64,.35)); }
+.intro.has-photo .intro-gunungan { display: none; }
+.intro.has-photo .intro-bg { height: 66%; background-position: center 20%; }
 .intro-names { font-family: var(--serif); font-weight: 500; font-size: 3rem; line-height: 1.05; color: var(--navy); margin-top: 6px; }
 .intro-date { margin-top: 10px; letter-spacing: .3em; text-transform: uppercase; font-size: .78rem; color: var(--gold-deep); font-weight: 500; }
 .hero-line { margin: 16px auto 0; max-width: 330px; font-family: var(--serif); font-style: italic; font-size: 1.15rem; color: var(--dusty-deep); }
@@ -454,9 +456,10 @@ body:not(.jawa) .jawa-only { display: none !important; }
 .closing-family { font-size: .84rem; color: #cfc6b6; margin-top: 6px; }
 
 /* ---------- Galeri ---------- */
-.gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px; border-radius: 18px; background: var(--ivory); }
+.gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; padding: 8px; border-radius: 18px; background: var(--ivory); }
 .gallery button { border: 0; padding: 0; border-radius: 12px; overflow: hidden; aspect-ratio: 3 / 4; background: var(--blush); }
-.gallery button:nth-child(4n + 1) { grid-column: span 2; aspect-ratio: auto; }
+/* Pola: satu foto lebar, lalu dua foto berdampingan; foto terakhir yang sendirian dibuat lebar */
+.gallery button:nth-child(3n + 1), .gallery button:nth-child(3n + 2):last-child { grid-column: span 2; aspect-ratio: 4 / 5; }
 .gallery img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; }
 .gallery button:hover img { transform: scale(1.05); }
 .lightbox { position: fixed; inset: 0; z-index: 80; background: rgba(23,32,56,.92); display: grid; place-items: center; padding: 20px; }

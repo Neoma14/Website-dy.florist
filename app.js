@@ -376,6 +376,7 @@ function renderCatalog() {
       <div class="product-info">
         <div class="product-category-meta">${esc(item.categoryName)}</div>
         <h3 class="product-title">${esc(item.name)}</h3>
+        ${item.demoUrl && /^\/undangan\/[a-z0-9-]{1,60}$/.test(item.demoUrl) ? `<a class="product-demo-link" href="${esc(item.demoUrl)}" target="_blank" rel="noopener">💌 Lihat contoh undangan ↗</a>` : ''}
         <div class="product-price-row">
           ${priceHtml(item)}
           <button class="add-cart-icon-btn" data-click="addToCart('${esc(item.id)}')" title="Tambah ke Keranjang" aria-label="Tambah ${esc(item.name)} ke Keranjang">

@@ -166,8 +166,10 @@ function timeAgo(iso) {
 
 // Pembuka: foto pendopo (atau foto sampul mempelai) memudar ke ivory, nama di bawahnya
 function renderIntro(d) {
-  return h('section', { class: 'inv-section intro', id: 'beranda' },
-    photoBg(h('div', { class: 'intro-bg', 'aria-hidden': 'true' }), safeMedia(d.photos?.cover)),
+  const cover = safeMedia(d.photos?.cover);
+  // Dengan foto mempelai, gunungan tidak ditaruh di atas foto agar tidak menutupi orangnya
+  return h('section', { class: `inv-section intro${cover ? ' has-photo' : ''}`, id: 'beranda' },
+    photoBg(h('div', { class: 'intro-bg', 'aria-hidden': 'true' }), cover),
     h('div', { class: 'intro-content' },
       deco(IMG.gunungan, 'intro-gunungan jawa-only reveal'),
       h('p', { class: 'script-eyebrow reveal', text: 'The Wedding of' }),
