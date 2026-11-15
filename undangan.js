@@ -53,11 +53,13 @@ function toast(msg) {
 function ornament(src, cls) {
   return h('img', { src: `/assets/undangan/${src}`, alt: '', class: `orn ${cls}`, 'aria-hidden': 'true' });
 }
-function divider() {
-  return h('img', { src: '/assets/undangan/foto/pembatas-emas.webp', alt: '', class: 'divider', 'aria-hidden': 'true' });
+// Bingkai emas: ornamen atas dan bawah mengapit judul (bukan dipasang sebagai garis pemisah)
+function titleFrame(content, cls = '') {
+  const piece = (pos) => h('img', { src: `/assets/undangan/foto/bingkai-${pos}.webp`, alt: '', class: `frame-${pos}`, 'aria-hidden': 'true' });
+  return h('div', { class: `title-frame ${cls}`.trim() }, piece('atas'), content, piece('bawah'));
 }
 function sectionHead(eyebrow, title) {
-  return [h('p', { class: 'sec-eyebrow', text: eyebrow }), h('h2', { class: 'sec-title', text: title }), divider()];
+  return [h('p', { class: 'sec-eyebrow', text: eyebrow }), titleFrame(h('h2', { class: 'sec-title', text: title }))];
 }
 
 function initials(d) {
@@ -120,8 +122,7 @@ function renderGreeting(d) {
   const q = g.quote;
   return h('section', { class: 'inv-section' },
     ornament('foto/bunga-krem.webp', 'orn-tr'),
-    g.salam ? h('p', { class: 'salam reveal', text: str(g.salam, 120) }) : null,
-    divider(),
+    g.salam ? titleFrame(h('p', { class: 'salam', text: str(g.salam, 120) }), 'reveal') : null,
     g.opening ? h('p', { class: 'sec-text reveal', text: str(g.opening, 800) }) : null,
     q && (q.text || q.arabic) ? h('div', { class: 'quote-card reveal' },
       q.arabic ? h('p', { class: 'quote-arabic', lang: 'ar', text: str(q.arabic, 600) }) : null,
@@ -170,7 +171,7 @@ function renderCountdown(d) {
   const box = (id, lbl) => h('div', { class: 'cd-box' }, h('span', { class: 'cd-num', id, text: '00' }), h('span', { class: 'cd-lbl', text: lbl }));
   const sec = h('section', { class: 'inv-section navy wayang-bg' },
     h('p', { class: 'sec-eyebrow reveal', text: 'Menghitung Hari' }),
-    h('h2', { class: 'sec-title reveal', text: 'Save the Date' }),
+    titleFrame(h('h2', { class: 'sec-title', text: 'Save the Date' }), 'reveal'),
     h('div', { class: 'countdown reveal' }, box('cdD', 'Hari'), box('cdH', 'Jam'), box('cdM', 'Menit'), box('cdS', 'Detik')),
     d.events?.[0] && calendarUrl(d.events[0], d)
       ? h('a', { class: 'btn-gold reveal', href: calendarUrl(d.events[0], d), target: '_blank', rel: 'noopener noreferrer', html: `${ICON.cal}<span>Simpan ke Kalender</span>` })

@@ -220,7 +220,13 @@ body:not(.jawa) .jawa-only { display: none !important; }
 .navy .sec-eyebrow { color: var(--gold-light); }
 .sec-title { font-family: var(--serif); font-weight: 500; font-size: 2.15rem; line-height: 1.15; color: var(--navy); margin-top: 2px; }
 .navy .sec-title { color: #fff; }
-.divider { width: 180px; margin: 16px auto 26px; opacity: .95; }
+/* Bingkai emas: ornamen atas + bawah mengapit judul */
+.title-frame { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 8px auto 28px; max-width: 100%; }
+.title-frame .frame-atas,
+.title-frame .frame-bawah { width: 220px; max-width: 78%; height: auto; opacity: .95; }
+.title-frame .sec-title { margin-top: 0; }
+.title-frame .salam { padding: 2px 0; }
+.navy .title-frame img { filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
 .sec-text { font-size: .93rem; color: var(--muted); }
 .navy .sec-text { color: #d9cfbf; }
 
@@ -644,7 +650,6 @@ body:not(.jawa) .jawa-only { display: none !important; }
 
 .cover-gunungan { width: 46px; filter: drop-shadow(0 6px 14px rgba(142,116,64,.35)); }
 .closing .gunungan-lg { width: 78px; }
-.divider { width: 210px; }
 
 /* Save the Date: ilustrasi wayang di balik lapisan navy */
 .inv-section.wayang-bg {
