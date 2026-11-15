@@ -569,11 +569,18 @@ async function start() {
 
   let d;
   try {
-    const res = await fetch(`/api/invitations/${encodeURIComponent(slug)}`, { credentials: 'same-origin' });
-    if (!res.ok) throw new Error(res.status === 404 ? 'Undangan tidak ditemukan.' : res.status === 410 ? 'Undangan ini sudah tidak aktif.' : 'Undangan gagal dimuat.');
+    // Link pratinjau pelanggan: /undangan/<slug>?preview=<token> (token 48 heksadesimal)
+    const pv = new URLSearchParams(location.search).get('preview') || '';
+    const qs = /^[a-f0-9]{48}$/.test(pv) ? `?preview=${pv}` : '';
+    const res = await fetch(`/api/invitations/${encodeURIComponent(slug)}${qs}`, { credentials: 'same-origin' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(res.status === 404 ? 'Undangan tidak ditemukan.' : res.status === 410 ? 'Undangan ini sudah tidak aktif.'
+        : res.status === 403 && typeof err.error === 'string' ? err.error : 'Undangan gagal dimuat.');
+    }
     d = await res.json();
   } catch (e) {
-    showError(e.message && e.message.startsWith('Undangan') ? e.message : 'Undangan gagal dimuat. Periksa koneksi Anda lalu muat ulang.');
+    showError(e.message && /^(Undangan|Link)/.test(e.message) ? e.message : 'Undangan gagal dimuat. Periksa koneksi Anda lalu muat ulang.');
     return;
   }
 

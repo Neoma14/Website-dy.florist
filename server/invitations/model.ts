@@ -167,6 +167,81 @@ export function publishProblems(d: InvitationData): string[] {
   return p;
 }
 
+// ---------- Masa aktif ----------
+export const RETENTION_OPTIONS = [0, 30, 90, 180, 365] as const;
+export const DEFAULT_RETENTION_DAYS = 180;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Waktu acara terakhir (akhir acara, atau mulai bila akhir kosong), atau null bila belum ada tanggal. */
+export function lastEventTime(d: Pick<InvitationData, 'events'>): number | null {
+  const times = d.events.map((e) => Date.parse(e.endIso) || Date.parse(e.startIso)).filter((n) => !Number.isNaN(n));
+  return times.length ? Math.max(...times) : null;
+}
+
+/** Kapan undangan berakhir (diarsipkan otomatis); null = tidak otomatis atau belum ada tanggal acara. */
+export function expiryOf(d: Pick<InvitationData, 'events'>, days: number): Date | null {
+  if (!days || days < 1) return null;
+  const last = lastEventTime(d);
+  return last === null ? null : new Date(last + days * DAY_MS);
+}
+
+// ---------- Formulir data pelanggan ----------
+// Pelanggan hanya boleh mengisi data pribadi/acara. Salam, ayat, musik, dan pengaturan tetap dikelola admin.
+export const INTAKE_STATUSES = ['none', 'open', 'submitted', 'applied', 'closed'] as const;
+export type IntakeStatus = (typeof INTAKE_STATUSES)[number];
+
+export function pickIntake(d: InvitationData) {
+  return {
+    couple: d.couple,
+    events: d.events,
+    story: d.story,
+    photos: d.photos,
+    gifts: d.gifts,
+    closing: { family: d.closing.family },
+  };
+}
+export type IntakeData = ReturnType<typeof pickIntake>;
+
+/** Data formulir pelanggan dari JSON tersimpan, sudah divalidasi ulang; null bila kosong/rusak. */
+export function parseIntake(raw: string | null): IntakeData | null {
+  if (!raw) return null;
+  try { return pickIntake(normalizeInvitationData(JSON.parse(raw))); } catch { return null; }
+}
+
+/** Terapkan isian pelanggan ke data undangan: isian yang terisi menimpa, yang kosong tidak menghapus data admin. */
+export function mergeIntake(base: InvitationData, intake: IntakeData): InvitationData {
+  const out = structuredClone(base);
+  const s = (a: string, b: string) => (b ? b : a);
+  for (const who of ['groom', 'bride'] as const) {
+    const o = out.couple[who];
+    const i = intake.couple[who];
+    for (const k of Object.keys(o) as (keyof typeof o)[]) o[k] = s(o[k], i[k]);
+  }
+  if (intake.events.length) out.events = intake.events;
+  if (intake.story.length) out.story = intake.story;
+  out.photos.cover = s(out.photos.cover, intake.photos.cover);
+  out.photos.couple = s(out.photos.couple, intake.photos.couple);
+  out.photos.closing = s(out.photos.closing, intake.photos.closing);
+  if (intake.photos.gallery.length) out.photos.gallery = intake.photos.gallery;
+  out.gifts.note = s(out.gifts.note, intake.gifts.note);
+  out.gifts.address = s(out.gifts.address, intake.gifts.address);
+  if (intake.gifts.accounts.length) out.gifts.accounts = intake.gifts.accounts;
+  out.closing.family = s(out.closing.family, intake.closing.family);
+  return out;
+}
+
+/** Ringkasan isian pelanggan untuk admin (tanpa menampilkan seluruh data). */
+export function intakeSummary(i: IntakeData) {
+  const person = (p: IntakeData['couple']['groom']) => !!(p.nickname || p.fullName);
+  return {
+    mempelai: [i.couple.groom, i.couple.bride].filter(person).length,
+    acara: i.events.length,
+    kisah: i.story.length,
+    foto: [i.couple.groom.photo, i.couple.bride.photo, i.photos.cover, i.photos.couple, i.photos.closing].filter(Boolean).length + i.photos.gallery.length,
+    rekening: i.gifts.accounts.length,
+  };
+}
+
 export function parseStoredData(raw: string): InvitationData {
   try { return normalizeInvitationData(JSON.parse(raw)); } catch { return newInvitationData(); }
 }

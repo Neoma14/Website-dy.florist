@@ -21,6 +21,10 @@
       "destination": "/undangan-admin.html"
     },
     {
+      "source": "/isi/:token",
+      "destination": "/undangan-form.html"
+    },
+    {
       "source": "/undangan/:slug",
       "has": [
         {
@@ -37,6 +41,19 @@
     }
   ],
   "headers": [
+    {
+      "source": "/isi/:token",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
     {
       "source": "/admin/undangan",
       "headers": [

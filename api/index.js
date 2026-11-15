@@ -319,6 +319,65 @@ function publishProblems(d) {
   else if (!d.events.some((e) => e.startIso)) p.push("Tanggal & jam acara wajib diisi");
   return p;
 }
+var RETENTION_OPTIONS = [0, 30, 90, 180, 365];
+var DAY_MS = 24 * 60 * 60 * 1e3;
+function lastEventTime(d) {
+  const times = d.events.map((e) => Date.parse(e.endIso) || Date.parse(e.startIso)).filter((n) => !Number.isNaN(n));
+  return times.length ? Math.max(...times) : null;
+}
+function expiryOf(d, days) {
+  if (!days || days < 1) return null;
+  const last = lastEventTime(d);
+  return last === null ? null : new Date(last + days * DAY_MS);
+}
+function pickIntake(d) {
+  return {
+    couple: d.couple,
+    events: d.events,
+    story: d.story,
+    photos: d.photos,
+    gifts: d.gifts,
+    closing: { family: d.closing.family }
+  };
+}
+function parseIntake(raw) {
+  if (!raw) return null;
+  try {
+    return pickIntake(normalizeInvitationData(JSON.parse(raw)));
+  } catch {
+    return null;
+  }
+}
+function mergeIntake(base, intake) {
+  const out = structuredClone(base);
+  const s = (a, b) => b ? b : a;
+  for (const who of ["groom", "bride"]) {
+    const o = out.couple[who];
+    const i = intake.couple[who];
+    for (const k of Object.keys(o)) o[k] = s(o[k], i[k]);
+  }
+  if (intake.events.length) out.events = intake.events;
+  if (intake.story.length) out.story = intake.story;
+  out.photos.cover = s(out.photos.cover, intake.photos.cover);
+  out.photos.couple = s(out.photos.couple, intake.photos.couple);
+  out.photos.closing = s(out.photos.closing, intake.photos.closing);
+  if (intake.photos.gallery.length) out.photos.gallery = intake.photos.gallery;
+  out.gifts.note = s(out.gifts.note, intake.gifts.note);
+  out.gifts.address = s(out.gifts.address, intake.gifts.address);
+  if (intake.gifts.accounts.length) out.gifts.accounts = intake.gifts.accounts;
+  out.closing.family = s(out.closing.family, intake.closing.family);
+  return out;
+}
+function intakeSummary(i) {
+  const person2 = (p) => !!(p.nickname || p.fullName);
+  return {
+    mempelai: [i.couple.groom, i.couple.bride].filter(person2).length,
+    acara: i.events.length,
+    kisah: i.story.length,
+    foto: [i.couple.groom.photo, i.couple.bride.photo, i.photos.cover, i.photos.couple, i.photos.closing].filter(Boolean).length + i.photos.gallery.length,
+    rekening: i.gifts.accounts.length
+  };
+}
 function parseStoredData(raw) {
   try {
     return normalizeInvitationData(JSON.parse(raw));
@@ -328,7 +387,8 @@ function parseStoredData(raw) {
 }
 
 // server/invitations/service.ts
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { randomBytes, timingSafeEqual } from "node:crypto";
+import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 
 // server/db/index.ts
 import { drizzle } from "drizzle-orm/mysql2";
@@ -418,7 +478,17 @@ var invitations = mysqlTable("invitations", {
   data: mediumtext("data").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  publishedAt: datetime("published_at")
+  publishedAt: datetime("published_at"),
+  // Diarsipkan otomatis sekian hari setelah acara terakhir (0 = tidak otomatis)
+  retentionDays: int("retention_days").notNull().default(180),
+  // Formulir data untuk pelanggan: none | open | submitted | applied | closed
+  intakeToken: varchar("intake_token", { length: 64 }).unique(),
+  intakeStatus: varchar("intake_status", { length: 10 }).notNull().default("none"),
+  intakeData: mediumtext("intake_data"),
+  intakeSubmittedAt: datetime("intake_submitted_at"),
+  // Link pratinjau rahasia untuk pelanggan (berlaku sementara, hangus saat terbit)
+  previewToken: varchar("preview_token", { length: 64 }).unique(),
+  previewExpiresAt: datetime("preview_expires_at")
 });
 var invitationWishes = mysqlTable("invitation_wishes", {
   id: int("id").autoincrement().primaryKey(),
@@ -475,6 +545,40 @@ function getDb() {
 }
 
 // server/invitations/service.ts
+var newToken = () => randomBytes(24).toString("hex");
+function tokenEquals(a, b) {
+  if (!a || !b || a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+var toDate = (v) => {
+  if (!v) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+function expiresAtOf(row) {
+  return expiryOf(parseStoredData(row.data), row.retentionDays);
+}
+async function archiveIfExpired(row) {
+  if (row.status !== "terbit") return false;
+  const exp = expiresAtOf(row);
+  if (!exp || exp.getTime() > Date.now()) return false;
+  await getDb().update(schema_exports.invitations).set({ status: "arsip", updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(schema_exports.invitations.id, row.id), eq(schema_exports.invitations.status, "terbit")));
+  return true;
+}
+async function sweepExpired() {
+  const rows = await getDb().select().from(schema_exports.invitations).where(eq(schema_exports.invitations.status, "terbit"));
+  let n = 0;
+  for (const r of rows) if (await archiveIfExpired(r)) n++;
+  return n;
+}
+async function findInvitationByIntakeToken(token) {
+  if (!/^[a-f0-9]{48}$/.test(token)) return void 0;
+  const [row] = await getDb().select().from(schema_exports.invitations).where(eq(schema_exports.invitations.intakeToken, token)).limit(1);
+  return row;
+}
+async function clearExpiredPreviews() {
+  await getDb().update(schema_exports.invitations).set({ previewToken: null, previewExpiresAt: null }).where(lt(schema_exports.invitations.previewExpiresAt, /* @__PURE__ */ new Date()));
+}
 async function findInvitationBySlug(slug) {
   const [row] = await getDb().select().from(schema_exports.invitations).where(eq(schema_exports.invitations.slug, slug)).limit(1);
   return row;
@@ -530,7 +634,11 @@ async function invitationShareHtml(slug, guest) {
   if (slug === "demo") d = demoInvitation();
   else if (/^[a-z0-9-]{3,60}$/.test(slug)) {
     const row = await findInvitationBySlug(slug);
-    if (row?.status === "terbit") d = parseStoredData(row.data);
+    if (row?.status === "terbit" && !await archiveIfExpired(row)) d = parseStoredData(row.data);
+    else if (row?.status === "draft") {
+      const u = `${SITE_URL}/undangan/${encodeURIComponent(slug)}`;
+      return { status: 200, html: page("Pratinjau Undangan Digital \u2014 dy.florist", "Undangan pernikahan digital sedang disiapkan oleh dy.florist.", `${SITE_URL}/assets/undangan/og-undangan.jpg`, u) };
+    }
   }
   const url = `${SITE_URL}/undangan/${encodeURIComponent(slug)}${guest ? `?to=${encodeURIComponent(guest)}` : ""}`;
   if (!d) {
@@ -561,13 +669,13 @@ function page(title, desc3, image, url) {
 
 // server/app.ts
 import { Elysia, t } from "elysia";
-import { randomBytes as randomBytes3, randomUUID } from "node:crypto";
+import { randomBytes as randomBytes4, randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { and as and3, asc, desc as desc2, eq as eq3, inArray as inArray2, ne, sql as sql3 } from "drizzle-orm";
 
 // server/lib/password.ts
-import { scrypt, randomBytes, timingSafeEqual } from "node:crypto";
+import { scrypt, randomBytes as randomBytes2, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
 var N = 2 ** 15;
 var KEYLEN = 64;
 function derive(password, salt, n, r, p) {
@@ -588,15 +696,15 @@ async function verifyPassword(password, stored) {
   try {
     const expected = Buffer.from(hashHex, "hex");
     const actual = await derive(password, Buffer.from(saltHex, "hex"), +n, +r, +p);
-    return expected.length === actual.length && timingSafeEqual(expected, actual);
+    return expected.length === actual.length && timingSafeEqual2(expected, actual);
   } catch {
     return false;
   }
 }
 
 // server/lib/security.ts
-import { createHash, randomBytes as randomBytes2 } from "node:crypto";
-import { and as and2, eq as eq2, gt, lt, sql as sql2 } from "drizzle-orm";
+import { createHash, randomBytes as randomBytes3 } from "node:crypto";
+import { and as and2, eq as eq2, gt, lt as lt2, sql as sql2 } from "drizzle-orm";
 var SESSION_COOKIE = "dyf_session";
 var SESSION_TTL_MS = 8 * 60 * 60 * 1e3;
 var sha256 = (s) => createHash("sha256").update(s).digest("hex");
@@ -611,10 +719,10 @@ function clientIp(request) {
 }
 async function createSession(role = "main") {
   const db = getDb();
-  const token = randomBytes2(32).toString("hex");
+  const token = randomBytes3(32).toString("hex");
   const expires = new Date(Date.now() + SESSION_TTL_MS);
   await db.insert(schema_exports.sessions).values({ tokenHash: sha256(token), expiresAt: expires, role });
-  await db.delete(schema_exports.sessions).where(lt(schema_exports.sessions.expiresAt, /* @__PURE__ */ new Date()));
+  await db.delete(schema_exports.sessions).where(lt2(schema_exports.sessions.expiresAt, /* @__PURE__ */ new Date()));
   return { token, expires };
 }
 async function sessionRole(token) {
@@ -652,7 +760,7 @@ async function loginGate(ipHash) {
 async function registerFailedLogin(ipHash) {
   const db = getDb();
   await db.insert(schema_exports.loginAttempts).values({ ipHash });
-  await db.delete(schema_exports.loginAttempts).where(lt(schema_exports.loginAttempts.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1e3)));
+  await db.delete(schema_exports.loginAttempts).where(lt2(schema_exports.loginAttempts.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1e3)));
   const [row] = await db.select().from(schema_exports.loginBlocks).where(eq2(schema_exports.loginBlocks.ipHash, ipHash)).limit(1);
   if (row?.level === 1) {
     await db.update(schema_exports.loginBlocks).set({ level: 2, lockedUntil: null, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(schema_exports.loginBlocks.ipHash, ipHash));
@@ -675,10 +783,10 @@ async function clearFailedLogins(ipHash) {
 }
 var RECOVERY_TTL_MS = 24 * 60 * 60 * 1e3;
 async function createRecoveryToken() {
-  const token = randomBytes2(32).toString("hex");
+  const token = randomBytes3(32).toString("hex");
   const db = getDb();
   await db.insert(schema_exports.recoveryTokens).values({ tokenHash: sha256(token), expiresAt: new Date(Date.now() + RECOVERY_TTL_MS) });
-  await db.delete(schema_exports.recoveryTokens).where(lt(schema_exports.recoveryTokens.expiresAt, new Date(Date.now() - RECOVERY_TTL_MS)));
+  await db.delete(schema_exports.recoveryTokens).where(lt2(schema_exports.recoveryTokens.expiresAt, new Date(Date.now() - RECOVERY_TTL_MS)));
   return token;
 }
 async function useRecoveryToken(token) {
@@ -702,7 +810,7 @@ async function rateLimited(bucket, ipHash, max, windowMs) {
   ));
   if (Number(row.n) >= max) return true;
   await db.insert(schema_exports.rateEvents).values({ bucket, ipHash });
-  await db.delete(schema_exports.rateEvents).where(lt(schema_exports.rateEvents.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1e3)));
+  await db.delete(schema_exports.rateEvents).where(lt2(schema_exports.rateEvents.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1e3)));
   return false;
 }
 function detectImageType(buf) {
@@ -797,7 +905,7 @@ function sessionCookie(value, expires) {
   return attrs.join("; ");
 }
 async function storeImage(buf, ext, contentType, folder = "products") {
-  const name = randomBytes3(16).toString("hex");
+  const name = randomBytes4(16).toString("hex");
   if (blobConfigured()) {
     const { put } = await import("@vercel/blob");
     const blob = await put(`${folder}/${name}.${ext}`, Buffer.from(buf), {
@@ -811,6 +919,9 @@ async function storeImage(buf, ext, contentType, folder = "products") {
   await mkdir(UPLOAD_DIR, { recursive: true });
   await writeFile(join(UPLOAD_DIR, `${name}.${ext}`), buf);
   return `/api/uploads/${name}.${ext}`;
+}
+async function removeInvitationMedia(url) {
+  if (url.includes("/invitations/")) await removeImage(url);
 }
 async function removeImage(url) {
   if (!url.includes(".public.blob.vercel-storage.com/") || !blobConfigured()) return;
@@ -906,17 +1017,26 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
 <link rel="canonical" href="${e(SITE_URL + target)}">
 <meta http-equiv="refresh" content="0; url=${e(target)}">
 </head><body><p><a href="${e(target)}">${e(p.name)}</a></p></body></html>`);
-}).get("/invitations/:slug", async ({ params, request, set }) => {
+}).get("/invitations/:slug", async ({ params, query, request, set }) => {
   if (params.slug === "demo") {
     set.headers["cache-control"] = "public, max-age=60";
     return demoInvitation();
   }
   const row = /^[a-z0-9-]{3,60}$/.test(params.slug) ? await findInvitationBySlug(params.slug) : void 0;
-  if (row?.status === "arsip") {
+  if (row && (row.status === "arsip" || await archiveIfExpired(row))) {
     set.status = 410;
     return { error: "Undangan ini sudah tidak aktif." };
   }
-  const preview = row?.status === "draft" && !!await sessionRole(getCookie(request, SESSION_COOKIE));
+  let preview = false;
+  if (row?.status === "draft") {
+    const token = typeof query.preview === "string" ? query.preview : "";
+    const tokenOk = tokenEquals(token, row.previewToken) && (toDate(row.previewExpiresAt)?.getTime() ?? 0) > Date.now();
+    preview = tokenOk || !!await sessionRole(getCookie(request, SESSION_COOKIE));
+    if (!preview && token) {
+      set.status = 403;
+      return { error: "Link pratinjau sudah tidak berlaku. Minta link baru ke dy.florist." };
+    }
+  }
   if (!row || row.status !== "terbit" && !preview) {
     set.status = 404;
     return { error: "Undangan tidak ditemukan" };
@@ -929,6 +1049,10 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
     return { error: "Permintaan ditolak" };
   }
   const row = /^[a-z0-9-]{3,60}$/.test(params.slug) ? await findInvitationBySlug(params.slug) : void 0;
+  if (row && await archiveIfExpired(row)) {
+    set.status = 410;
+    return { error: "Undangan ini sudah tidak aktif." };
+  }
   if (!row || row.status !== "terbit") {
     set.status = 404;
     return { error: "Undangan tidak ditemukan" };
@@ -989,7 +1113,86 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
     status,
     headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=300", "x-content-type-options": "nosniff" }
   });
-}).get("/bespoke-prices", async () => {
+}).get("/intake/:token", async ({ params, request, set }) => {
+  if (await rateLimited("intake-get", hashIp(clientIp(request)), 120, 10 * 60 * 1e3)) {
+    set.status = 429;
+    return { error: "Terlalu banyak permintaan. Coba lagi nanti." };
+  }
+  const row = await findInvitationByIntakeToken(params.token);
+  if (!row || row.intakeStatus === "none") {
+    set.status = 404;
+    return { error: "Formulir tidak ditemukan atau link sudah tidak berlaku." };
+  }
+  const base = parseStoredData(row.data);
+  const intake = parseIntake(row.intakeData);
+  return {
+    status: row.intakeStatus,
+    editable: row.intakeStatus === "open" || row.intakeStatus === "submitted",
+    data: pickIntake(intake ? mergeIntake(base, intake) : base)
+  };
+}).put("/intake/:token", async ({ params, body, request, set }) => {
+  if (request.headers.get("x-requested-with") !== "dyflorist") {
+    set.status = 403;
+    return { error: "Permintaan ditolak" };
+  }
+  if (await rateLimited("intake-put", hashIp(clientIp(request)), 40, 10 * 60 * 1e3)) {
+    set.status = 429;
+    return { error: "Terlalu banyak penyimpanan. Coba lagi beberapa menit lagi." };
+  }
+  const row = await findInvitationByIntakeToken(params.token);
+  if (!row || row.intakeStatus === "none") {
+    set.status = 404;
+    return { error: "Formulir tidak ditemukan atau link sudah tidak berlaku." };
+  }
+  if (row.intakeStatus !== "open" && row.intakeStatus !== "submitted") {
+    set.status = 409;
+    return { error: "Formulir sudah ditutup. Hubungi dy.florist bila ada yang ingin diubah." };
+  }
+  const picked = pickIntake(normalizeInvitationData(body.data));
+  const json = JSON.stringify(picked);
+  if (json.length > 15e4) {
+    set.status = 413;
+    return { error: "Isian terlalu panjang" };
+  }
+  const status = body.submit ? "submitted" : row.intakeStatus;
+  const before = mediaUrls(parseStoredData(row.intakeData ?? "{}"));
+  await getDb().update(schema_exports.invitations).set({
+    intakeData: json,
+    intakeStatus: status,
+    updatedAt: /* @__PURE__ */ new Date(),
+    intakeSubmittedAt: body.submit ? /* @__PURE__ */ new Date() : toDate(row.intakeSubmittedAt)
+  }).where(eq3(schema_exports.invitations.id, row.id));
+  const keep = /* @__PURE__ */ new Set([...mediaUrls(parseStoredData(row.data)), ...mediaUrls(parseStoredData(json))]);
+  for (const url of before) if (!keep.has(url)) await removeInvitationMedia(url);
+  return { ok: true, status };
+}, { body: t.Object({ data: t.Record(t.String(), t.Unknown()), submit: t.Optional(t.Boolean()) }) }).post("/intake/:token/upload", async ({ params, body, request, set }) => {
+  if (request.headers.get("x-requested-with") !== "dyflorist") {
+    set.status = 403;
+    return { error: "Permintaan ditolak" };
+  }
+  const row = await findInvitationByIntakeToken(params.token);
+  if (!row || row.intakeStatus !== "open" && row.intakeStatus !== "submitted") {
+    set.status = 404;
+    return { error: "Formulir tidak ditemukan atau sudah ditutup." };
+  }
+  if (await rateLimited("intake-up", hashIp(clientIp(request)), 20, 10 * 60 * 1e3) || await rateLimited(`iu:${row.id}`, "all", 60, 60 * 60 * 1e3)) {
+    set.status = 429;
+    return { error: "Terlalu banyak unggahan. Coba lagi beberapa menit lagi." };
+  }
+  const file = body.file;
+  if (file.size > MAX_UPLOAD_BYTES) {
+    set.status = 413;
+    return { error: "Foto terlalu besar (maks 4 MB)" };
+  }
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const type = detectImageType(buf);
+  if (!type) {
+    set.status = 415;
+    return { error: "Hanya foto JPG, PNG, atau WebP" };
+  }
+  const contentType = type === "png" ? "image/png" : type === "webp" ? "image/webp" : "image/jpeg";
+  return { url: await storeImage(buf, type, contentType, "invitations") };
+}, { body: t.Object({ file: t.File() }) }).get("/bespoke-prices", async () => {
   const rows = await getDb().select().from(schema_exports.bespokePrices).orderBy(asc(schema_exports.bespokePrices.sort));
   return rows.map((r) => ({ key: r.key, kind: r.kind, label: r.label, price: r.price }));
 }).get("/uploads/:name", async ({ params, set }) => {
@@ -1265,6 +1468,8 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
     })
   }).get("/invitations", async () => {
     const db = getDb();
+    await sweepExpired();
+    await clearExpiredPreviews();
     const rows = await db.select().from(schema_exports.invitations).orderBy(desc2(schema_exports.invitations.updatedAt)).limit(500);
     const counts = rows.length ? await db.select({
       id: schema_exports.invitationWishes.invitationId,
@@ -1289,7 +1494,9 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
         wishes: Number(c?.n ?? 0),
         waiting: Number(c?.waiting ?? 0),
         updatedAt: r.updatedAt,
-        publishedAt: r.publishedAt
+        publishedAt: r.publishedAt,
+        expiresAt: expiresAtOf(r)?.toISOString() ?? null,
+        intakeStatus: r.intakeStatus
       };
     });
   }).post("/invitations", async ({ body, set }) => {
@@ -1330,20 +1537,33 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
       set.status = 404;
       return { error: "Undangan tidak ditemukan" };
     }
-    const data = parseStoredData(row.data);
+    await archiveIfExpired(row);
+    const fresh = await findInvitationById(row.id) ?? row;
+    const data = parseStoredData(fresh.data);
+    const intake = parseIntake(fresh.intakeData);
+    const previewLive = !!fresh.previewToken && (toDate(fresh.previewExpiresAt)?.getTime() ?? 0) > Date.now();
     return {
-      id: row.id,
-      slug: row.slug,
-      status: row.status,
-      template: row.template,
-      customerName: row.customerName,
-      customerPhone: row.customerPhone,
-      note: row.note,
-      updatedAt: row.updatedAt,
-      publishedAt: row.publishedAt,
+      id: fresh.id,
+      slug: fresh.slug,
+      status: fresh.status,
+      template: fresh.template,
+      customerName: fresh.customerName,
+      customerPhone: fresh.customerPhone,
+      note: fresh.note,
+      updatedAt: fresh.updatedAt,
+      publishedAt: fresh.publishedAt,
+      retentionDays: fresh.retentionDays,
+      expiresAt: expiresAtOf(fresh)?.toISOString() ?? null,
+      intake: {
+        status: fresh.intakeStatus,
+        token: fresh.intakeToken,
+        submittedAt: fresh.intakeSubmittedAt,
+        summary: intake ? intakeSummary(intake) : null
+      },
+      preview: previewLive ? { token: fresh.previewToken, expiresAt: fresh.previewExpiresAt } : null,
       data,
       problems: publishProblems(data),
-      stats: await attendanceStats(row.id)
+      stats: await attendanceStats(fresh.id)
     };
   }, { params: t.Object({ id: t.Numeric({ minimum: 1 }) }) }).put("/invitations/:id", async ({ params, body, set }) => {
     const db = getDb();
@@ -1377,17 +1597,19 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
       return { error: "Isi undangan terlalu panjang" };
     }
     const before = mediaUrls(parseStoredData(row.data));
-    const after = new Set(mediaUrls(data));
+    const after = /* @__PURE__ */ new Set([...mediaUrls(data), ...row.intakeData ? mediaUrls(parseStoredData(row.intakeData)) : []]);
     await db.update(schema_exports.invitations).set({
       slug,
       data: json,
       updatedAt: /* @__PURE__ */ new Date(),
+      retentionDays: body.retentionDays ?? row.retentionDays,
       customerName: cleanText(body.customerName),
       customerPhone: cleanText(body.customerPhone),
       note: cleanText(body.note)
     }).where(eq3(schema_exports.invitations.id, row.id));
-    for (const url of before) if (!after.has(url)) await removeImage(url);
-    return { ok: true, slug, data, problems: publishProblems(data) };
+    for (const url of before) if (!after.has(url)) await removeInvitationMedia(url);
+    const saved = await findInvitationById(row.id) ?? row;
+    return { ok: true, slug, data, problems: publishProblems(data), retentionDays: saved.retentionDays, expiresAt: expiresAtOf(saved)?.toISOString() ?? null };
   }, {
     params: t.Object({ id: t.Numeric({ minimum: 1 }) }),
     body: t.Object({
@@ -1395,6 +1617,7 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
       customerName: text2(0, 120),
       customerPhone: text2(0, 30),
       note: text2(0, 500),
+      retentionDays: t.Optional(t.Union(RETENTION_OPTIONS.map((n) => t.Literal(n)))),
       data: t.Record(t.String(), t.Unknown())
     })
   }).post("/invitations/:id/status", async ({ params, body, set }) => {
@@ -1409,11 +1632,18 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
         set.status = 422;
         return { error: `Belum bisa diterbitkan: ${problems.join("; ")}` };
       }
+      const exp = expiresAtOf(row);
+      if (exp && exp.getTime() <= Date.now()) {
+        set.status = 422;
+        return { error: "Masa aktif undangan sudah lewat, jadi akan langsung diarsipkan lagi. Perpanjang masa aktif atau ubah tanggal acara dulu." };
+      }
     }
     await getDb().update(schema_exports.invitations).set({
       status: body.status,
       updatedAt: /* @__PURE__ */ new Date(),
-      publishedAt: body.status === "terbit" ? row.publishedAt ?? /* @__PURE__ */ new Date() : row.publishedAt
+      publishedAt: body.status === "terbit" ? row.publishedAt ?? /* @__PURE__ */ new Date() : row.publishedAt,
+      // Link pratinjau pelanggan hangus begitu undangan terbit
+      ...body.status === "terbit" ? { previewToken: null, previewExpiresAt: null } : {}
     }).where(eq3(schema_exports.invitations.id, row.id));
     return { ok: true, status: body.status };
   }, {
@@ -1432,9 +1662,62 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
     }
     await db.delete(schema_exports.invitationWishes).where(eq3(schema_exports.invitationWishes.invitationId, row.id));
     await db.delete(schema_exports.invitations).where(eq3(schema_exports.invitations.id, row.id));
-    for (const url of mediaUrls(parseStoredData(row.data))) await removeImage(url);
+    const urls = [...mediaUrls(parseStoredData(row.data)), ...row.intakeData ? mediaUrls(parseStoredData(row.intakeData)) : []];
+    for (const url of new Set(urls)) await removeInvitationMedia(url);
     return { ok: true };
-  }, { params: t.Object({ id: t.Numeric({ minimum: 1 }) }) }).post("/invitations/upload", async ({ body, set }) => {
+  }, { params: t.Object({ id: t.Numeric({ minimum: 1 }) }) }).post("/invitations/:id/intake", async ({ params, body, set }) => {
+    const row = await findInvitationById(Number(params.id));
+    if (!row) {
+      set.status = 404;
+      return { error: "Undangan tidak ditemukan" };
+    }
+    const regenerate = body.action === "regenerate" || !row.intakeToken;
+    const token = regenerate ? newToken() : row.intakeToken;
+    const status = body.action === "close" ? "closed" : "open";
+    await getDb().update(schema_exports.invitations).set({ intakeToken: token, intakeStatus: status, updatedAt: /* @__PURE__ */ new Date() }).where(eq3(schema_exports.invitations.id, row.id));
+    return { ok: true, token, status };
+  }, {
+    params: t.Object({ id: t.Numeric({ minimum: 1 }) }),
+    body: t.Object({ action: t.Union([t.Literal("open"), t.Literal("close"), t.Literal("regenerate")]) })
+  }).post("/invitations/:id/intake/apply", async ({ params, set }) => {
+    const row = await findInvitationById(Number(params.id));
+    const intake = row ? parseIntake(row.intakeData) : null;
+    if (!row || !intake) {
+      set.status = 404;
+      return { error: "Belum ada isian dari pelanggan" };
+    }
+    const before = parseStoredData(row.data);
+    const merged = mergeIntake(before, intake);
+    const after = new Set(mediaUrls(merged));
+    await getDb().update(schema_exports.invitations).set({
+      data: JSON.stringify(merged),
+      intakeStatus: "applied",
+      updatedAt: /* @__PURE__ */ new Date()
+    }).where(eq3(schema_exports.invitations.id, row.id));
+    for (const url of mediaUrls(before)) if (!after.has(url)) await removeInvitationMedia(url);
+    return { ok: true, status: "applied", data: merged, problems: publishProblems(merged) };
+  }, { params: t.Object({ id: t.Numeric({ minimum: 1 }) }) }).post("/invitations/:id/preview-link", async ({ params, body, set }) => {
+    const row = await findInvitationById(Number(params.id));
+    if (!row) {
+      set.status = 404;
+      return { error: "Undangan tidak ditemukan" };
+    }
+    if (row.status !== "draft") {
+      set.status = 409;
+      return { error: "Link pratinjau hanya untuk undangan berstatus Draft. Undangan terbit sudah bisa dibuka lewat link biasa." };
+    }
+    if (body.action === "revoke") {
+      await getDb().update(schema_exports.invitations).set({ previewToken: null, previewExpiresAt: null }).where(eq3(schema_exports.invitations.id, row.id));
+      return { ok: true, preview: null };
+    }
+    const token = newToken();
+    const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1e3);
+    await getDb().update(schema_exports.invitations).set({ previewToken: token, previewExpiresAt: expiresAt }).where(eq3(schema_exports.invitations.id, row.id));
+    return { ok: true, preview: { token, expiresAt } };
+  }, {
+    params: t.Object({ id: t.Numeric({ minimum: 1 }) }),
+    body: t.Object({ action: t.Union([t.Literal("create"), t.Literal("revoke")]) })
+  }).post("/invitations/upload", async ({ body, set }) => {
     const file = body.file;
     if (file.size > MAX_UPLOAD_BYTES) {
       set.status = 413;

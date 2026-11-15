@@ -8,6 +8,7 @@ const pageRoutes = () => {
     const url = req.url || '';
     const query = url.includes('?') ? url.slice(url.indexOf('?')) : '';
     if (/^\/admin\/undangan\/?(\?.*)?$/.test(url)) req.url = '/undangan-admin.html' + query;
+    else if (/^\/isi\/[a-f0-9]{48}\/?(\?.*)?$/.test(url)) req.url = '/undangan-form.html' + query;
     else if (/^\/undangan\/[^/?]+\/?(\?.*)?$/.test(url)) req.url = '/undangan.html' + query;
     next();
   };
@@ -33,6 +34,7 @@ export default defineConfig({
         main: resolve(import.meta.dirname, 'index.html'),
         undangan: resolve(import.meta.dirname, 'undangan.html'),
         undanganAdmin: resolve(import.meta.dirname, 'undangan-admin.html'),
+        undanganForm: resolve(import.meta.dirname, 'undangan-form.html'),
       },
     },
   },

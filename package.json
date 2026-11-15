@@ -19,6 +19,7 @@
     "db:seed:tidb": "tsx --env-file=.env.tidb scripts/seed.ts",
     "build:api": "esbuild server/handler.ts --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=api/index.js",
     "db:backup": "tsx --env-file=.env.tidb scripts/backup-db.ts",
+    "db:backup:media": "tsx --env-file=.env.tidb scripts/backup-db.ts --media",
     "admin:unblock": "tsx --env-file=.env.tidb scripts/unblock-login.ts",
     "admin:unblock:local": "tsx --env-file=.env scripts/unblock-login.ts"
   },

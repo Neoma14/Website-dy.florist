@@ -3,24 +3,9 @@
  * Semua teks ditulis lewat textContent/value (tanpa innerHTML untuk data), tanpa handler inline (CSP).
  */
 
+import { createKit, getPath, h, setPath, shrinkImage } from './undangan-kit.js';
+
 // ---------- Utilitas ----------
-function h(tag, attrs = {}, ...children) {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (v === undefined || v === null || v === false) continue;
-    if (k === 'class') el.className = v;
-    else if (k === 'text') el.textContent = v;
-    else if (k === 'value') el.value = v;
-    else if (k === 'checked') el.checked = !!v;
-    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
-    else el.setAttribute(k, v === true ? '' : String(v));
-  }
-  for (const c of children.flat()) {
-    if (c === null || c === undefined || c === false) continue;
-    el.append(c instanceof Node ? c : document.createTextNode(String(c)));
-  }
-  return el;
-}
 const $ = (id) => document.getElementById(id);
 
 async function api(path, { method = 'GET', json, form } = {}) {
@@ -56,7 +41,6 @@ async function copyText(text, done = 'Disalin') {
 const STATUS_LABEL = { draft: 'Draft', terbit: 'Terbit', arsip: 'Arsip' };
 const ATTEND_LABEL = { hadir: 'Hadir', tidak: 'Tidak Hadir', ragu: 'Masih Ragu' };
 const WISH_LABEL = { tampil: 'Tampil', menunggu: 'Menunggu', sembunyi: 'Disembunyikan' };
-const ZONES = { WIB: '+07:00', WITA: '+08:00', WIT: '+09:00' };
 const fmtDate = (v) => { const d = new Date(v); return Number.isNaN(d.getTime()) ? '' : d.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }); };
 const inviteUrl = (slug, guest) => `${location.origin}/undangan/${slug}${guest ? `?to=${encodeURIComponent(guest)}` : ''}`;
 const coupleName = (g, b) => (g || b ? `${g || '…'} & ${b || '…'}` : '(nama mempelai belum diisi)');
@@ -134,7 +118,7 @@ window.addEventListener('hashchange', () => route());
 
 async function route() {
   if (!ROLE) return;
-  const m = /^#(\d+)(?:\/(isi|tamu|ucapan))?$/.exec(location.hash);
+  const m = /^#(\d+)(?:\/(isi|pelanggan|tamu|ucapan))?$/.exec(location.hash);
   if (m) await openEditor(Number(m[1]), m[2] || 'isi');
   else await renderList();
 }
@@ -188,18 +172,27 @@ async function renderList() {
   draw();
 }
 
+const DAY = 24 * 60 * 60 * 1000;
+const fmtDay = (v) => new Date(v).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' });
+const daysLeft = (v) => Math.ceil((new Date(v).getTime() - Date.now()) / DAY);
+const INTAKE_CHIP = { open: 'Formulir dibuka', submitted: 'Data masuk dari pelanggan', applied: 'Data diterapkan', closed: 'Formulir ditutup' };
+
 function card(r) {
-  const date = r.firstEvent ? new Date(r.firstEvent).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' }) : '';
+  const date = r.firstEvent ? fmtDay(r.firstEvent) : '';
+  const left = r.status === 'terbit' && r.expiresAt ? daysLeft(r.expiresAt) : null;
   return h('article', { class: 'ua-card' },
     h('div', { class: 'ua-card-top' },
       h('span', { class: `ua-chip is-${r.status}`, text: STATUS_LABEL[r.status] || r.status }),
-      r.waiting ? h('span', { class: 'ua-chip is-wait', text: `${r.waiting} ucapan menunggu` }) : null),
+      r.waiting ? h('span', { class: 'ua-chip is-wait', text: `${r.waiting} ucapan menunggu` }) : null,
+      r.intakeStatus === 'submitted' ? h('span', { class: 'ua-chip is-wait', text: INTAKE_CHIP.submitted }) : null,
+      left !== null && left <= 30 ? h('span', { class: 'ua-chip is-wait', text: left > 0 ? `Berakhir ${left} hari lagi` : 'Berakhir hari ini' }) : null),
     h('h2', { text: coupleName(r.groom, r.bride) }),
     h('p', { class: 'ua-slug', text: `/undangan/${r.slug}` }),
     h('dl', {},
       h('dt', { text: 'Pemesan' }), h('dd', { text: [r.customerName, r.customerPhone].filter(Boolean).join(' · ') || '-' }),
       h('dt', { text: 'Acara' }), h('dd', { text: date || r.dateLabel || '-' }),
       h('dt', { text: 'Ucapan' }), h('dd', { text: String(r.wishes) }),
+      r.status === 'terbit' && r.expiresAt ? [h('dt', { text: 'Aktif s/d' }), h('dd', { text: fmtDay(r.expiresAt) })] : null,
       h('dt', { text: 'Diubah' }), h('dd', { text: fmtDate(r.updatedAt) })),
     h('div', { class: 'ua-row' },
       h('button', { type: 'button', class: 'ua-btn', text: 'Kelola', onclick: () => goto(`#${r.id}`) }),
@@ -260,7 +253,14 @@ function newInvitationDialog() {
 }
 
 // ---------- Editor ----------
-let CUR = null; // { id, slug, status, customerName, customerPhone, note, data, problems, stats }
+let CUR = null; // { id, slug, status, customerName, customerPhone, note, data, problems, stats, intake, preview, retentionDays, expiresAt }
+
+const { field, photoField, fieldset, repeater, itemInput, eventEditor, galleryField } = createKit({
+  getData: () => CUR.data,
+  onChange: () => setDirty(),
+  toast: (m) => toast(m),
+  uploadImage: (file) => uploadFile(file, 'image'),
+});
 
 async function openEditor(id, tab) {
   $('uaList').hidden = true;
@@ -286,24 +286,7 @@ function setDirty() {
 }
 
 // Ambil/ubah nilai bertingkat, mis. get(d, 'couple.groom.nickname')
-const getPath = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
-function setPath(o, p, v) {
-  const ks = p.split('.');
-  const last = ks.pop();
-  const target = ks.reduce((a, k) => (a[k] ??= {}), o);
-  target[last] = v;
-}
 
-function field(label, path, { type = 'text', max, rows, placeholder, help, inputmode } = {}) {
-  const d = CUR.data;
-  const val = getPath(d, path) ?? '';
-  const input = type === 'textarea'
-    ? h('textarea', { rows: String(rows || 3), maxlength: max ? String(max) : null, placeholder })
-    : h('input', { type, maxlength: max ? String(max) : null, placeholder, inputmode });
-  input.value = val;
-  input.addEventListener('input', () => { setPath(d, path, input.value); setDirty(); });
-  return h('label', {}, label, input, help ? h('small', { text: help }) : null);
-}
 
 function toggle(label, path, help) {
   const input = h('input', { type: 'checkbox', checked: !!getPath(CUR.data, path) });
@@ -312,23 +295,6 @@ function toggle(label, path, help) {
 }
 
 // Perkecil foto besar di browser sebelum diunggah (batas server 4 MB)
-async function shrinkImage(file) {
-  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return file;
-  try {
-    const bmp = await createImageBitmap(file);
-    const max = 1800;
-    const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
-    if (scale === 1 && file.size < 1.5 * 1024 * 1024) return file;
-    const c = document.createElement('canvas');
-    c.width = Math.round(bmp.width * scale);
-    c.height = Math.round(bmp.height * scale);
-    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-    const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.85));
-    return blob ? new File([blob], 'foto.jpg', { type: 'image/jpeg' }) : file;
-  } catch {
-    return file;
-  }
-}
 
 async function uploadFile(file, kind) {
   const f = kind === 'image' ? await shrinkImage(file) : file;
@@ -340,107 +306,13 @@ async function uploadFile(file, kind) {
   return out.url;
 }
 
-function photoField(label, path, help) {
-  const wrap = h('div', { class: 'ua-photo' });
-  const draw = () => {
-    const url = getPath(CUR.data, path) || '';
-    const input = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', hidden: true });
-    const pick = h('button', { type: 'button', class: 'ua-btn ghost small', text: url ? 'Ganti foto' : 'Unggah foto', onclick: () => input.click() });
-    input.addEventListener('change', async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      pick.disabled = true;
-      pick.textContent = 'Mengunggah…';
-      try {
-        setPath(CUR.data, path, await uploadFile(file, 'image'));
-        setDirty();
-        toast('Foto terunggah. Jangan lupa Simpan.');
-      } catch (e) { toast(e.message); }
-      draw();
-    });
-    wrap.replaceChildren(
-      h('span', { class: 'ua-photo-label', text: label }),
-      h('div', { class: 'ua-photo-box' }, url ? h('img', { src: url, alt: '' }) : h('span', { text: 'Belum ada foto' })),
-      h('div', { class: 'ua-row' }, pick,
-        url ? h('button', { type: 'button', class: 'ua-btn ghost small', text: 'Hapus', onclick: () => { setPath(CUR.data, path, ''); setDirty(); draw(); } }) : null),
-      help ? h('small', { text: help }) : null,
-      input);
-  };
-  draw();
-  return wrap;
-}
 
-function fieldset(title, ...children) {
-  return h('details', { class: 'ua-fieldset', open: true }, h('summary', { text: title }), h('div', { class: 'ua-fieldset-body' }, ...children));
-}
 
 // Daftar berulang (acara, kisah, rekening, galeri)
-function repeater({ path, max, addLabel, empty, item, render }) {
-  const box = h('div', { class: 'ua-repeat' });
-  const draw = () => {
-    const list = getPath(CUR.data, path) || [];
-    const rows = list.map((it, i) => h('div', { class: 'ua-repeat-item' },
-      h('div', { class: 'ua-repeat-head' },
-        h('strong', { text: `#${i + 1}` }),
-        h('div', { class: 'ua-row' },
-          i > 0 ? h('button', { type: 'button', class: 'ua-icon', title: 'Naikkan', 'aria-label': 'Naikkan', text: '↑', onclick: () => { [list[i - 1], list[i]] = [list[i], list[i - 1]]; setDirty(); draw(); } }) : null,
-          h('button', { type: 'button', class: 'ua-icon danger', title: 'Hapus', 'aria-label': 'Hapus', text: '✕', onclick: () => { list.splice(i, 1); setDirty(); draw(); } }))),
-      render(it, i, draw)));
-    box.replaceChildren(
-      ...(rows.length ? rows : [h('p', { class: 'ua-muted small', text: empty })]),
-      list.length < max ? h('button', { type: 'button', class: 'ua-btn ghost small', text: addLabel, onclick: () => { setPath(CUR.data, path, [...list, item()]); setDirty(); draw(); } }) : null);
-  };
-  draw();
-  return box;
-}
 
 // Satu input yang terikat ke properti objek dalam daftar
-function itemInput(obj, key, label, opts = {}) {
-  const input = opts.type === 'textarea'
-    ? h('textarea', { rows: String(opts.rows || 3), maxlength: opts.max ? String(opts.max) : null, placeholder: opts.placeholder })
-    : h('input', { type: opts.type || 'text', maxlength: opts.max ? String(opts.max) : null, placeholder: opts.placeholder, inputmode: opts.inputmode });
-  input.value = obj[key] ?? '';
-  input.addEventListener('input', () => { obj[key] = input.value; setDirty(); opts.onchange?.(); });
-  return h('label', {}, label, input, opts.help ? h('small', { text: opts.help }) : null);
-}
 
 // Acara: tanggal + jam + zona waktu -> startIso/endIso + label otomatis
-function parseIso(iso) {
-  const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::\d{2})?([+-]\d{2}:\d{2})$/.exec(iso || '');
-  if (!m) return { date: '', time: '', zone: 'WIB' };
-  return { date: m[1], time: m[2], zone: Object.entries(ZONES).find(([, o]) => o === m[3])?.[0] || 'WIB' };
-}
-function eventEditor(ev) {
-  const s = parseIso(ev.startIso);
-  const e = parseIso(ev.endIso);
-  const date = h('input', { type: 'date', value: s.date });
-  const start = h('input', { type: 'time', value: s.time });
-  const end = h('input', { type: 'time', value: e.time });
-  const zone = h('select', {}, Object.keys(ZONES).map((z) => h('option', { value: z, text: z, selected: s.zone === z })));
-  const info = h('small');
-  const apply = () => {
-    const off = ZONES[zone.value];
-    ev.startIso = date.value && start.value ? `${date.value}T${start.value}:00${off}` : '';
-    ev.endIso = date.value && end.value ? `${date.value}T${end.value}:00${off}` : '';
-    const dot = (t) => t.replace(':', '.');
-    ev.timeLabel = start.value ? `${dot(start.value)} – ${end.value ? dot(end.value) : 'Selesai'} ${zone.value}` : '';
-    ev.dateLabel = date.value ? new Date(`${date.value}T12:00:00`).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '';
-    info.textContent = ev.startIso ? `Tampil: ${ev.dateLabel}, ${ev.timeLabel}` : 'Isi tanggal dan jam mulai.';
-  };
-  apply();
-  for (const el of [date, start, end, zone]) el.addEventListener('change', () => { apply(); setDirty(); });
-  return h('div', { class: 'ua-form' },
-    itemInput(ev, 'title', 'Nama acara', { max: 40, placeholder: 'Akad Nikah / Resepsi / Ngunduh Mantu' }),
-    h('div', { class: 'ua-grid4' },
-      h('label', {}, 'Tanggal', date),
-      h('label', {}, 'Jam mulai', start),
-      h('label', {}, 'Jam selesai', end, h('small', { text: 'Kosongkan = "Selesai"' })),
-      h('label', {}, 'Zona', zone)),
-    info,
-    itemInput(ev, 'venueName', 'Nama tempat', { max: 100, placeholder: 'Gedung / Kediaman Mempelai Wanita' }),
-    itemInput(ev, 'address', 'Alamat', { type: 'textarea', rows: 2, max: 200 }),
-    itemInput(ev, 'mapsUrl', 'Link Google Maps', { max: 300, placeholder: 'https://maps.app.goo.gl/…', help: 'Buka Google Maps → Bagikan → Salin link. Link selain Google Maps diabaikan.' }));
-}
 
 function musicField() {
   const wrap = h('div', { class: 'ua-photo' });
@@ -473,28 +345,6 @@ function musicField() {
   return wrap;
 }
 
-function galleryField() {
-  const box = h('div', { class: 'ua-gallery' });
-  const draw = () => {
-    const list = CUR.data.photos.gallery;
-    const input = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', multiple: true, hidden: true });
-    input.addEventListener('change', async () => {
-      const files = [...(input.files || [])].slice(0, 12 - list.length);
-      for (const f of files) {
-        try { list.push(await uploadFile(f, 'image')); setDirty(); } catch (e) { toast(e.message); }
-      }
-      if (files.length) toast('Foto galeri terunggah. Jangan lupa Simpan.');
-      draw();
-    });
-    box.replaceChildren(
-      ...list.map((url, i) => h('div', { class: 'ua-thumb' }, h('img', { src: url, alt: '' }),
-        h('button', { type: 'button', class: 'ua-icon danger', 'aria-label': 'Hapus foto', text: '✕', onclick: () => { list.splice(i, 1); setDirty(); draw(); } }))),
-      list.length < 12 ? h('button', { type: 'button', class: 'ua-thumb add', text: `+ Tambah foto (${list.length}/12)`, onclick: () => input.click() }) : null,
-      input);
-  };
-  draw();
-  return box;
-}
 
 function renderEditor(tab) {
   const c = CUR;
@@ -505,7 +355,8 @@ function renderEditor(tab) {
     c.status === 'terbit' ? h('button', { type: 'button', class: 'ua-btn ghost', text: 'Jadikan Draft', onclick: () => changeStatus('draft') }) : null,
     c.status !== 'arsip' ? h('button', { type: 'button', class: 'ua-btn ghost', text: 'Arsipkan', onclick: () => changeStatus('arsip') }) : null,
     c.status !== 'terbit' ? h('button', { type: 'button', class: 'ua-btn ghost danger', text: 'Hapus', onclick: deleteInvitation }) : null);
-  const tabs = [['isi', 'Isi Undangan'], ['tamu', 'Link Tamu'], ['ucapan', `Ucapan & Kehadiran (${(c.stats?.hadir || 0) + (c.stats?.tidak || 0) + (c.stats?.ragu || 0)})`]];
+  const tabs = [['isi', 'Isi Undangan'], ['pelanggan', c.intake?.status === 'submitted' ? 'Pelanggan ●' : 'Pelanggan'], ['tamu', 'Link Tamu'], ['ucapan', `Ucapan & Kehadiran (${(c.stats?.hadir || 0) + (c.stats?.tidak || 0) + (c.stats?.ragu || 0)})`]];
+  const left = c.status === 'terbit' && c.expiresAt ? daysLeft(c.expiresAt) : null;
   sec.replaceChildren(...[
     h('div', { class: 'ua-head' },
       h('div', {},
@@ -517,8 +368,11 @@ function renderEditor(tab) {
           h('button', { type: 'button', class: 'ua-btn ghost small', text: 'Salin link', onclick: () => copyText(inviteUrl(c.slug), 'Link undangan disalin') }))),
       statusBtns),
     c.problems?.length && c.status !== 'terbit' ? h('div', { class: 'ua-note' }, h('strong', { text: 'Sebelum terbit: ' }), c.problems.join(' · ')) : null,
+    left !== null && left <= 30 ? h('div', { class: 'ua-note' }, h('strong', { text: left > 0 ? `Undangan ini akan diarsipkan otomatis dalam ${left} hari (${fmtDay(c.expiresAt)}). ` : 'Undangan ini diarsipkan otomatis hari ini. ' }),
+      'Unduh dulu data kehadiran di tab Ucapan & Kehadiran. Untuk memperpanjang, ubah "Masa aktif" di bagian Pengaturan.') : null,
+    c.status === 'arsip' && c.expiresAt && daysLeft(c.expiresAt) <= 0 ? h('div', { class: 'ua-note' }, 'Undangan ini diarsipkan karena masa aktifnya habis. Untuk menerbitkan lagi, perpanjang "Masa aktif" di bagian Pengaturan lalu Simpan.') : null,
     h('nav', { class: 'ua-tabs' }, tabs.map(([k, l]) => h('button', { type: 'button', class: tab === k ? 'active' : '', text: l, onclick: () => goto(`#${c.id}${k === 'isi' ? '' : `/${k}`}`) }))),
-    tab === 'tamu' ? guestLinks() : tab === 'ucapan' ? wishesPanel() : contentForm(),
+    tab === 'tamu' ? guestLinks() : tab === 'ucapan' ? wishesPanel() : tab === 'pelanggan' ? customerPanel() : contentForm(),
   ].filter(Boolean));
 }
 
@@ -602,7 +456,13 @@ function contentForm() {
       })(),
       toggle('Ucapan & doa dari tamu', 'wishes.enabled'),
       toggle('Ucapan perlu disetujui dulu', 'wishes.requireApproval', 'Ucapan baru tidak langsung tampil sampai disetujui di tab Ucapan.'),
-      toggle('Aksen Jawa (gunungan, parang, wayang)', 'theme.javanese')),
+      toggle('Aksen Jawa (gunungan, parang, wayang)', 'theme.javanese'),
+      (() => {
+        const opts = [[0, 'Tidak otomatis (aktif sampai diarsipkan manual)'], [30, '30 hari setelah acara'], [90, '90 hari (3 bulan) setelah acara'], [180, '180 hari (6 bulan) setelah acara'], [365, '365 hari (1 tahun) setelah acara']];
+        const sel = h('select', {}, opts.map(([v, l]) => h('option', { value: String(v), text: l, selected: (c.retentionDays ?? 180) === v })));
+        sel.addEventListener('change', () => { c.retentionDays = Number(sel.value); setDirty(); });
+        return h('label', {}, 'Masa aktif undangan', sel, h('small', { text: 'Setelah masa ini lewat, undangan diarsipkan otomatis: tamu melihat pesan "tidak aktif" dan ucapan tetap tersimpan.' }));
+      })()),
     h('div', { class: 'ua-savebar' },
       h('span', { class: 'ua-save-state', id: 'uaSaveState', text: dirty ? 'Belum disimpan' : 'Tersimpan' }),
       h('a', { class: 'ua-btn ghost', href: `/undangan/${c.slug}`, target: '_blank', rel: 'noopener', text: 'Pratinjau' }),
@@ -623,11 +483,13 @@ async function saveInvitation() {
   try {
     const out = await api(`/admin/invitations/${c.id}`, {
       method: 'PUT',
-      json: { slug: c.slug.trim(), customerName: c.customerName || '', customerPhone: c.customerPhone || '', note: c.note || '', data: d },
+      json: { slug: c.slug.trim(), customerName: c.customerName || '', customerPhone: c.customerPhone || '', note: c.note || '', retentionDays: c.retentionDays ?? 180, data: d },
     });
     c.slug = out.slug;
     c.data = out.data;
     c.problems = out.problems;
+    c.retentionDays = out.retentionDays;
+    c.expiresAt = out.expiresAt;
     dirty = false;
     toast('Undangan tersimpan');
     renderEditor('isi');
@@ -643,12 +505,13 @@ async function changeStatus(status) {
   const msg = {
     terbit: 'Undangan akan bisa dibuka siapa saja yang memiliki link-nya.',
     draft: 'Undangan tidak bisa dibuka tamu sampai diterbitkan lagi.',
-    arsip: 'Tamu akan melihat pesan "undangan sudah tidak aktif". Ucapan tetap tersimpan.',
+    arsip: 'Tamu akan melihat pesan "undangan sudah tidak aktif". Ucapan tetap tersimpan. Sebaiknya unduh dulu data kehadiran (tab Ucapan & Kehadiran).',
   }[status];
   if (!(await confirmBox(`${{ terbit: 'Terbitkan', draft: 'Jadikan draft', arsip: 'Arsipkan' }[status]} undangan?`, msg))) return;
   try {
     await api(`/admin/invitations/${CUR.id}/status`, { method: 'POST', json: { status } });
     CUR.status = status;
+    if (status === 'terbit') CUR.preview = null; // link pratinjau pelanggan hangus saat terbit
     toast({ terbit: 'Undangan terbit! Bagikan link ke tamu.', draft: 'Undangan menjadi draft', arsip: 'Undangan diarsipkan' }[status]);
     renderEditor(status === 'terbit' ? 'tamu' : 'isi');
     if (status === 'terbit') history.replaceState(null, '', `#${CUR.id}/tamu`);
@@ -723,6 +586,116 @@ function guestLinks() {
         h('label', {}, 'Template pesan WhatsApp', msg, h('small', { text: 'Kode: {nama} = nama tamu, {link} = link undangan, {mempelai} = nama mempelai.' })),
         h('button', { type: 'button', class: 'ua-btn ghost small', text: 'Kembalikan template bawaan', onclick: () => { msg.value = DEFAULT_MESSAGE; draw(); } })),
       list));
+}
+
+// ---------- Pelanggan: formulir data & pratinjau ----------
+const waPhone = (p) => { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('0') ? `62${d.slice(1)}` : d; };
+const waLink = (phone, text) => `https://wa.me/${waPhone(phone)}?text=${encodeURIComponent(text)}`;
+const formUrl = (token) => `${location.origin}/isi/${token}`;
+const previewUrl = (slug, token) => `${location.origin}/undangan/${slug}?preview=${token}`;
+const greet = (c) => `Halo Kak${c.customerName ? ` ${c.customerName}` : ''}`;
+
+const formMessage = (c) => `${greet(c)}, terima kasih sudah memesan Undangan Digital dy.florist 💌
+
+Agar undangan Kakak bisa kami buat, mohon isi data mempelai, acara, dan foto lewat formulir berikut:
+${formUrl(c.intake.token)}
+
+• Boleh disimpan dulu dan dilanjutkan kapan saja
+• Setelah semua terisi, tekan tombol "Kirim ke dy.florist"
+• Link ini khusus untuk Kakak, mohon tidak dibagikan ke orang lain
+
+Terima kasih 🌸`;
+
+const previewMessage = (c) => `${greet(c)}, pratinjau undangan digital Kakak sudah siap 💌
+
+Silakan dicek di sini (link berlaku sampai ${fmtDay(c.preview.expiresAt)}):
+${previewUrl(c.slug, c.preview.token)}
+
+Mohon dicek nama, tanggal, lokasi, dan fotonya. Kalau sudah sesuai, kabari kami ya, undangan akan segera kami terbitkan. Kalau ada yang perlu direvisi, tulis di chat ini.
+
+Terima kasih 🌸`;
+
+function linkBox(url, message, phone) {
+  return h('div', { class: 'ua-linkbox' },
+    h('input', { value: url, readonly: true, 'aria-label': 'Link', onfocus: (e) => e.target.select() }),
+    h('div', { class: 'ua-row' },
+      h('button', { type: 'button', class: 'ua-btn ghost small', text: 'Salin link', onclick: () => copyText(url, 'Link disalin') }),
+      h('button', { type: 'button', class: 'ua-btn ghost small', text: 'Salin pesan', onclick: () => copyText(message, 'Pesan disalin') }),
+      h('a', { class: 'ua-btn small wa', href: waLink(phone, message), target: '_blank', rel: 'noopener noreferrer', text: phone ? 'Kirim ke pelanggan' : 'Kirim lewat WhatsApp' })));
+}
+
+function customerPanel() {
+  const c = CUR;
+  const intake = c.intake || { status: 'none' };
+  const redraw = () => renderEditor('pelanggan');
+
+  const intakeAction = async (action) => {
+    try {
+      const out = await api(`/admin/invitations/${c.id}/intake`, { method: 'POST', json: { action } });
+      c.intake = { ...intake, token: out.token, status: out.status };
+      toast({ open: 'Formulir dibuka', close: 'Formulir ditutup', regenerate: 'Link baru dibuat. Link lama tidak berlaku lagi.' }[action]);
+      redraw();
+    } catch (e) { toast(e.message); }
+  };
+  const applyIntake = async () => {
+    if (dirty) { toast('Simpan perubahan di tab Isi Undangan dulu'); return; }
+    if (!(await confirmBox('Terapkan data pelanggan?', 'Isian pelanggan akan masuk ke undangan. Yang dikosongkan pelanggan tidak menghapus data yang sudah Anda isi. Formulir lalu dikunci.', 'Terapkan'))) return;
+    try {
+      const out = await api(`/admin/invitations/${c.id}/intake/apply`, { method: 'POST', json: {} });
+      c.data = out.data;
+      c.problems = out.problems;
+      c.intake = { ...intake, status: 'applied' };
+      toast('Data pelanggan diterapkan. Periksa di tab Isi Undangan.');
+      redraw();
+    } catch (e) { toast(e.message); }
+  };
+  const previewAction = async (action) => {
+    if (action === 'create' && dirty) { toast('Simpan perubahan dulu supaya pratinjau memuat data terbaru'); return; }
+    try {
+      const out = await api(`/admin/invitations/${c.id}/preview-link`, { method: 'POST', json: { action } });
+      c.preview = out.preview;
+      toast(action === 'create' ? 'Link pratinjau dibuat (berlaku 14 hari)' : 'Link pratinjau dicabut');
+      redraw();
+    } catch (e) { toast(e.message); }
+  };
+
+  const sum = intake.summary;
+  const formCard = h('section', { class: 'ua-panel' },
+    h('h2', { text: 'Formulir data pelanggan' }),
+    h('p', { class: 'ua-muted small', text: 'Pelanggan mengisi nama, acara, foto, dan rekening sendiri lewat link rahasia. Anda yang meninjau lalu menerapkannya ke undangan; salam, ayat, musik, dan pengaturan tetap Anda yang atur.' }),
+    intake.status === 'none'
+      ? h('button', { type: 'button', class: 'ua-btn', text: 'Buat Link Formulir', onclick: () => intakeAction('open') })
+      : [
+        h('p', { class: 'ua-row' }, h('span', { class: `ua-chip ${intake.status === 'submitted' ? 'is-wait' : intake.status === 'open' ? 'is-terbit' : 'is-arsip'}`, text: INTAKE_CHIP[intake.status] || intake.status }),
+          intake.submittedAt ? h('small', { text: `Terakhir dikirim ${fmtDate(intake.submittedAt)}` }) : null),
+        intake.status === 'open' || intake.status === 'submitted' ? linkBox(formUrl(intake.token), formMessage(c), c.customerPhone) : null,
+        sum ? h('div', { class: 'ua-summary' },
+          h('strong', { text: 'Isian dari pelanggan: ' }),
+          `${sum.mempelai} mempelai · ${sum.acara} acara · ${sum.kisah} kisah · ${sum.foto} foto · ${sum.rekening} rekening`) : null,
+        h('div', { class: 'ua-row' },
+          sum && intake.status !== 'applied' ? h('button', { type: 'button', class: 'ua-btn gold', text: 'Terapkan ke undangan', onclick: applyIntake }) : null,
+          intake.status === 'open' || intake.status === 'submitted' ? h('button', { type: 'button', class: 'ua-btn ghost', text: 'Tutup formulir', onclick: () => intakeAction('close') }) : h('button', { type: 'button', class: 'ua-btn ghost', text: 'Buka kembali', onclick: () => intakeAction('open') }),
+          h('button', { type: 'button', class: 'ua-btn ghost danger', text: 'Ganti link', onclick: async () => { if (await confirmBox('Ganti link formulir?', 'Link lama langsung tidak berlaku. Gunakan bila link sempat terbagi ke orang yang salah.', 'Ganti link', true)) intakeAction('regenerate'); } })),
+      ]);
+
+  const left = c.preview ? daysLeft(c.preview.expiresAt) : 0;
+  const previewCard = h('section', { class: 'ua-panel' },
+    h('h2', { text: 'Pratinjau untuk pelanggan' }),
+    c.status !== 'draft'
+      ? h('p', { class: 'ua-muted small', text: c.status === 'terbit' ? 'Undangan sudah terbit, pelanggan cukup membuka link undangan biasa.' : 'Link pratinjau hanya untuk undangan berstatus Draft.' })
+      : [
+        h('p', { class: 'ua-muted small', text: 'Pelanggan bisa melihat draft sebelum diterbitkan lewat link rahasia ini. Link berlaku 14 hari dan hangus otomatis saat undangan diterbitkan. Ucapan yang ditulis di pratinjau tidak disimpan.' }),
+        c.preview
+          ? [h('p', { class: 'ua-row' }, h('span', { class: 'ua-chip is-terbit', text: 'Link aktif' }), h('small', { text: `Berlaku sampai ${fmtDay(c.preview.expiresAt)} (${left} hari lagi)` })),
+            linkBox(previewUrl(c.slug, c.preview.token), previewMessage(c), c.customerPhone),
+            h('div', { class: 'ua-row' },
+              h('button', { type: 'button', class: 'ua-btn ghost', text: 'Buat link baru', onclick: () => previewAction('create') }),
+              h('button', { type: 'button', class: 'ua-btn ghost danger', text: 'Cabut link', onclick: () => previewAction('revoke') }))]
+          : h('button', { type: 'button', class: 'ua-btn', text: 'Buat Link Pratinjau', onclick: () => previewAction('create') }),
+        dirty ? h('p', { class: 'ua-alert' }, 'Ada perubahan yang belum disimpan. Simpan dulu agar pratinjau pelanggan memuat data terbaru.') : null,
+      ]);
+
+  return h('div', { class: 'ua-editor' }, formCard, previewCard);
 }
 
 // ---------- Ucapan & kehadiran ----------

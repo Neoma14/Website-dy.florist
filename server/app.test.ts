@@ -622,6 +622,148 @@ test('produk: link demo undangan hanya boleh halaman undangan situs ini', async 
   await call(`/api/admin/products/${id}`, { method: 'DELETE', cookie });
 });
 
+// ---------- Alur kerja undangan: pratinjau pelanggan, formulir data, masa aktif ----------
+const intakePut = (token: string, body: unknown, header = true, ip = newIp()) => call(`/api/intake/${token}`, {
+  method: 'PUT', admin: false, ip, body: JSON.stringify(body),
+  headers: { 'content-type': 'application/json', ...(header ? { 'x-requested-with': 'dyflorist' } : {}) },
+});
+const post = (cookie: string, path: string, body: unknown) => call(path, { method: 'POST', cookie, ...json(body) });
+
+test('pratinjau pelanggan: link rahasia membuka draft, salah/kedaluwarsa ditolak, hangus saat terbit', async () => {
+  const cookie = await loginUndangan();
+  const id = await createInvitation(cookie, 'pratinjau-uji');
+  await saveInvitation(cookie, id, 'pratinjau-uji', FILLED);
+
+  const created = await (await post(cookie, `/api/admin/invitations/${id}/preview-link`, { action: 'create' })).json() as any;
+  const token = created.preview.token as string;
+  assert.match(token, /^[a-f0-9]{48}$/);
+
+  const ok = await call(`/api/invitations/pratinjau-uji?preview=${token}`);
+  assert.equal(ok.status, 200);
+  assert.equal(((await ok.json()) as any).isPreview, true);
+  assert.equal((await call('/api/invitations/pratinjau-uji')).status, 404); // tanpa token tetap tertutup
+  assert.equal((await call('/api/invitations/pratinjau-uji?preview=' + 'a'.repeat(48))).status, 403);
+  // Pratinjau tidak menyimpan ucapan (draft tidak menerima kiriman)
+  assert.equal((await wish('pratinjau-uji', { name: 'A', message: 'B', attendance: 'hadir' })).status, 404);
+  // Halaman bagikan link draft tidak membocorkan nama
+  const og = await (await call('/api/invitation-share/pratinjau-uji')).text();
+  assert.ok(!og.includes('Bima') && og.includes('Pratinjau'));
+
+  // Kedaluwarsa
+  await getDb().update(schema.invitations).set({ previewExpiresAt: new Date(Date.now() - 1000) }).where((await import('drizzle-orm')).eq(schema.invitations.id, id));
+  assert.equal((await call(`/api/invitations/pratinjau-uji?preview=${token}`)).status, 403);
+
+  // Link baru, lalu terbit -> hangus
+  const again = await (await post(cookie, `/api/admin/invitations/${id}/preview-link`, { action: 'create' })).json() as any;
+  await post(cookie, `/api/admin/invitations/${id}/status`, { status: 'terbit' });
+  const detail = await (await call(`/api/admin/invitations/${id}`, { cookie })).json() as any;
+  assert.equal(detail.preview, null);
+  // Undangan terbit: link pratinjau hanya untuk draft
+  assert.equal((await post(cookie, `/api/admin/invitations/${id}/preview-link`, { action: 'create' })).status, 409);
+  assert.equal((await call(`/api/invitations/pratinjau-uji?preview=${again.preview.token}`)).status, 200);
+});
+
+test('formulir data pelanggan: link rahasia, validasi, kirim, terapkan, tutup', async () => {
+  const cookie = await loginUndangan();
+  const id = await createInvitation(cookie, 'formulir-uji');
+  assert.equal((await call('/api/intake/' + 'a'.repeat(48))).status, 404);
+  const opened = await (await post(cookie, `/api/admin/invitations/${id}/intake`, { action: 'open' })).json() as any;
+  const token = opened.token as string;
+  assert.match(token, /^[a-f0-9]{48}$/);
+  assert.equal((await call('/api/intake/tidak-valid')).status, 404);
+
+  const form = await (await call(`/api/intake/${token}`)).json() as any;
+  assert.equal(form.editable, true);
+  assert.equal(form.data.settings, undefined); // pengaturan & musik bukan urusan pelanggan
+  assert.equal(form.data.rsvp, undefined);
+
+  assert.equal((await intakePut(token, { data: {} }, false)).status, 403); // tanpa header
+  const mine = {
+    couple: { groom: { nickname: 'Bima', fullName: 'Bima Saputra', photo: 'https://evil.example/x.jpg', instagram: '@bima.ok' }, bride: { nickname: 'Sekar' } },
+    events: [{ title: 'Akad', startIso: '2027-09-05T08:00:00+07:00', mapsUrl: 'javascript:alert(1)' }],
+    gifts: { accounts: [{ bank: 'BCA', number: '123', name: 'Bima' }] },
+    music: { src: '/assets/undangan/contoh/musik-contoh.mp3' }, // diabaikan
+    wishes: { enabled: false }, // diabaikan
+  };
+  assert.equal((await intakePut(token, { data: mine })).status, 200);
+  let list = await (await call('/api/admin/invitations', { cookie })).json() as any[];
+  assert.equal(list.find((r) => r.id === id).intakeStatus, 'open');
+
+  assert.equal((await intakePut(token, { data: mine, submit: true })).status, 200);
+  let detail = await (await call(`/api/admin/invitations/${id}`, { cookie })).json() as any;
+  assert.equal(detail.intake.status, 'submitted');
+  assert.deepEqual(detail.intake.summary, { mempelai: 2, acara: 1, kisah: 0, foto: 0, rekening: 1 });
+  assert.equal(detail.data.couple.groom.fullName, ''); // belum diterapkan
+  assert.equal(detail.data.music.src, ''); // musik dari pelanggan tidak masuk
+
+  const applied = await post(cookie, `/api/admin/invitations/${id}/intake/apply`, {});
+  assert.equal(applied.status, 200);
+  detail = await (await call(`/api/admin/invitations/${id}`, { cookie })).json() as any;
+  assert.equal(detail.intake.status, 'applied');
+  assert.equal(detail.data.couple.groom.fullName, 'Bima Saputra');
+  assert.equal(detail.data.couple.groom.photo, ''); // alamat foto luar ditolak
+  assert.equal(detail.data.couple.groom.instagram, 'bima.ok');
+  assert.equal(detail.data.events[0].mapsUrl, '');
+  assert.equal(detail.data.greeting.salam, 'Assalamu’alaikum Warahmatullahi Wabarakatuh'); // data admin tidak terhapus
+  assert.equal(detail.data.wishes.enabled, true);
+
+  // Terkunci setelah diterapkan, bisa dibuka lagi; ganti link mematikan link lama
+  assert.equal((await intakePut(token, { data: mine })).status, 409);
+  const reopened = await (await post(cookie, `/api/admin/invitations/${id}/intake`, { action: 'regenerate' })).json() as any;
+  assert.notEqual(reopened.token, token);
+  assert.equal((await call(`/api/intake/${token}`)).status, 404);
+  assert.equal((await intakePut(reopened.token, { data: mine })).status, 200);
+  await post(cookie, `/api/admin/invitations/${id}/intake`, { action: 'close' });
+  assert.equal((await intakePut(reopened.token, { data: mine })).status, 409);
+  assert.equal(((await (await call(`/api/intake/${reopened.token}`)).json()) as any).editable, false);
+});
+
+test('formulir pelanggan: unggah hanya foto & hanya saat formulir terbuka', async () => {
+  const cookie = await loginUndangan();
+  const id = await createInvitation(cookie, 'unggah-pelanggan');
+  const send = async (token: string, bytes: number[], header = true) => {
+    const fd = new FormData();
+    fd.append('file', new File([new Uint8Array([...bytes, ...new Array(64).fill(0)])], 'a.bin'));
+    return call(`/api/intake/${token}/upload`, { method: 'POST', admin: false, body: fd, headers: header ? { 'x-requested-with': 'dyflorist' } : {} });
+  };
+  const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  assert.equal((await send('a'.repeat(48), png)).status, 404); // token asing
+  const { token } = await (await post(cookie, `/api/admin/invitations/${id}/intake`, { action: 'open' })).json() as any;
+  assert.equal((await send(token, png, false)).status, 403);
+  assert.equal((await send(token, png)).status, 200);
+  assert.equal((await send(token, [0x49, 0x44, 0x33, 0x04])).status, 415); // MP3 bukan untuk pelanggan
+  assert.equal((await send(token, [0x3c, 0x73, 0x76, 0x67])).status, 415);
+  await post(cookie, `/api/admin/invitations/${id}/intake`, { action: 'close' });
+  assert.equal((await send(token, png)).status, 404);
+});
+
+test('masa aktif: diarsipkan otomatis setelah acara + N hari, tidak bisa diterbitkan bila sudah lewat', async () => {
+  const cookie = await loginUndangan();
+  const id = await createInvitation(cookie, 'masa-aktif-uji');
+  const past = { ...FILLED, events: [{ title: 'Akad', startIso: '2026-10-01T08:00:00+07:00', endIso: '2026-10-01T10:00:00+07:00' }] };
+  // acara 1 Okt 2026 + 30 hari = 31 Okt 2026 (sudah lewat); tapi masih draft boleh disimpan
+  const save = (days: number, data: unknown = past) => call(`/api/admin/invitations/${id}`, {
+    method: 'PUT', cookie, ...json({ slug: 'masa-aktif-uji', customerName: '', customerPhone: '', note: '', retentionDays: days, data }),
+  });
+  assert.equal((await save(30)).status, 200);
+  assert.equal((await post(cookie, `/api/admin/invitations/${id}/status`, { status: 'terbit' })).status, 422); // sudah lewat
+  assert.equal((await save(0)).status, 200); // 0 = tidak otomatis
+  assert.equal((await post(cookie, `/api/admin/invitations/${id}/status`, { status: 'terbit' })).status, 200);
+  assert.equal((await call('/api/invitations/masa-aktif-uji')).status, 200);
+  assert.equal((await save(365)).status, 200);
+  const d = await (await call(`/api/admin/invitations/${id}`, { cookie })).json() as any;
+  assert.equal(d.retentionDays, 365);
+  assert.ok(d.expiresAt && new Date(d.expiresAt).getFullYear() === 2027);
+
+  // Diubah menjadi 30 hari lewat database (seolah masa aktif habis saat tamu membuka link)
+  await getDb().update(schema.invitations).set({ retentionDays: 30 }).where((await import('drizzle-orm')).eq(schema.invitations.id, id));
+  assert.equal((await call('/api/invitations/masa-aktif-uji')).status, 410);
+  assert.equal((await wish('masa-aktif-uji', { name: 'A', message: 'B', attendance: 'hadir' })).status, 410);
+  const list = await (await call('/api/admin/invitations', { cookie })).json() as any[];
+  assert.equal(list.find((r) => r.id === id).status, 'arsip');
+  assert.equal((await save(7 as any)).status, 422); // pilihan di luar daftar ditolak
+});
+
 test('error server tidak membocorkan detail & body rusak ditolak', async () => {
   const res = await call('/api/orders', { method: 'POST', admin: false, body: '{bukan json', headers: { 'content-type': 'application/json' } });
   assert.ok([422, 400].includes(res.status));

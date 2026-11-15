@@ -1,10 +1,12 @@
 import { SITE_URL, sendBlockedAlert } from './lib/mailer';
 import { demoInvitation } from './invitations/demo';
 import {
-  ATTENDANCE, INVITATION_STATUSES, isValidSlug, mediaUrls, newInvitationData, normalizeInvitationData, parseStoredData, publishProblems,
+  ATTENDANCE, INVITATION_STATUSES, RETENTION_OPTIONS, intakeSummary, isValidSlug, mediaUrls, mergeIntake, newInvitationData, normalizeInvitationData,
+  parseIntake, parseStoredData, pickIntake, publishProblems,
 } from './invitations/model';
 import {
-  attendanceStats, findInvitationById, findInvitationBySlug, invitationShareHtml, publicInvitation, publicWish,
+  archiveIfExpired, attendanceStats, clearExpiredPreviews, expiresAtOf, findInvitationById, findInvitationByIntakeToken, findInvitationBySlug,
+  invitationShareHtml, newToken, publicInvitation, publicWish, sweepExpired, tokenEquals, toDate,
 } from './invitations/service';
 import { Elysia, t } from 'elysia';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -146,6 +148,11 @@ async function storeImage(buf: Uint8Array, ext: string, contentType: string, fol
   return `/api/uploads/${name}.${ext}`;
 }
 
+// Berkas undangan hanya dihapus bila memang di folder invitations/ (isian pelanggan tidak boleh memicu hapus foto produk)
+async function removeInvitationMedia(url: string) {
+  if (url.includes('/invitations/')) await removeImage(url);
+}
+
 async function removeImage(url: string) {
   if (!url.includes('.public.blob.vercel-storage.com/') || !blobConfigured()) return;
   try {
@@ -261,17 +268,27 @@ export const app = new Elysia({ prefix: '/api' })
 
   // ---------- Undangan digital (publik) ----------
   // Undangan terbit bisa dibuka siapa saja; draft hanya oleh admin yang sedang login (pratinjau)
-  .get('/invitations/:slug', async ({ params, request, set }) => {
+  .get('/invitations/:slug', async ({ params, query, request, set }) => {
     if (params.slug === 'demo') {
       set.headers['cache-control'] = 'public, max-age=60';
       return demoInvitation();
     }
     const row = /^[a-z0-9-]{3,60}$/.test(params.slug) ? await findInvitationBySlug(params.slug) : undefined;
-    if (row?.status === 'arsip') {
+    if (row && (row.status === 'arsip' || await archiveIfExpired(row))) {
       set.status = 410;
       return { error: 'Undangan ini sudah tidak aktif.' };
     }
-    const preview = row?.status === 'draft' && !!(await sessionRole(getCookie(request, SESSION_COOKIE)));
+    let preview = false;
+    if (row?.status === 'draft') {
+      // Pratinjau: admin yang login, atau pelanggan dengan link rahasia yang masih berlaku
+      const token = typeof query.preview === 'string' ? query.preview : '';
+      const tokenOk = tokenEquals(token, row.previewToken) && (toDate(row.previewExpiresAt)?.getTime() ?? 0) > Date.now();
+      preview = tokenOk || !!(await sessionRole(getCookie(request, SESSION_COOKIE)));
+      if (!preview && token) {
+        set.status = 403;
+        return { error: 'Link pratinjau sudah tidak berlaku. Minta link baru ke dy.florist.' };
+      }
+    }
     if (!row || (row.status !== 'terbit' && !preview)) {
       set.status = 404;
       return { error: 'Undangan tidak ditemukan' };
@@ -289,6 +306,10 @@ export const app = new Elysia({ prefix: '/api' })
       return { error: 'Permintaan ditolak' };
     }
     const row = /^[a-z0-9-]{3,60}$/.test(params.slug) ? await findInvitationBySlug(params.slug) : undefined;
+    if (row && await archiveIfExpired(row)) {
+      set.status = 410;
+      return { error: 'Undangan ini sudah tidak aktif.' };
+    }
     if (!row || row.status !== 'terbit') {
       set.status = 404;
       return { error: 'Undangan tidak ditemukan' };
@@ -347,6 +368,93 @@ export const app = new Elysia({ prefix: '/api' })
       headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff' },
     });
   })
+
+  // ---------- Formulir data untuk pelanggan (link rahasia dari admin) ----------
+  // Pelanggan mengisi data pribadi & acara sendiri; hasilnya ditinjau admin sebelum diterapkan ke undangan
+  .get('/intake/:token', async ({ params, request, set }) => {
+    if (await rateLimited('intake-get', hashIp(clientIp(request)), 120, 10 * 60 * 1000)) {
+      set.status = 429;
+      return { error: 'Terlalu banyak permintaan. Coba lagi nanti.' };
+    }
+    const row = await findInvitationByIntakeToken(params.token);
+    if (!row || row.intakeStatus === 'none') {
+      set.status = 404;
+      return { error: 'Formulir tidak ditemukan atau link sudah tidak berlaku.' };
+    }
+    const base = parseStoredData(row.data);
+    const intake = parseIntake(row.intakeData);
+    return {
+      status: row.intakeStatus,
+      editable: row.intakeStatus === 'open' || row.intakeStatus === 'submitted',
+      data: pickIntake(intake ? mergeIntake(base, intake) : base),
+    };
+  })
+
+  .put('/intake/:token', async ({ params, body, request, set }) => {
+    if (request.headers.get('x-requested-with') !== 'dyflorist') {
+      set.status = 403;
+      return { error: 'Permintaan ditolak' };
+    }
+    if (await rateLimited('intake-put', hashIp(clientIp(request)), 40, 10 * 60 * 1000)) {
+      set.status = 429;
+      return { error: 'Terlalu banyak penyimpanan. Coba lagi beberapa menit lagi.' };
+    }
+    const row = await findInvitationByIntakeToken(params.token);
+    if (!row || row.intakeStatus === 'none') {
+      set.status = 404;
+      return { error: 'Formulir tidak ditemukan atau link sudah tidak berlaku.' };
+    }
+    if (row.intakeStatus !== 'open' && row.intakeStatus !== 'submitted') {
+      set.status = 409;
+      return { error: 'Formulir sudah ditutup. Hubungi dy.florist bila ada yang ingin diubah.' };
+    }
+    const picked = pickIntake(normalizeInvitationData(body.data));
+    const json = JSON.stringify(picked);
+    if (json.length > 150_000) {
+      set.status = 413;
+      return { error: 'Isian terlalu panjang' };
+    }
+    const status = body.submit ? 'submitted' : row.intakeStatus;
+    const before = mediaUrls(parseStoredData(row.intakeData ?? '{}'));
+    await getDb().update(schema.invitations).set({
+      intakeData: json, intakeStatus: status, updatedAt: new Date(),
+      intakeSubmittedAt: body.submit ? new Date() : toDate(row.intakeSubmittedAt),
+    }).where(eq(schema.invitations.id, row.id));
+    // Foto yang diganti pelanggan dibersihkan (kecuali masih dipakai di undangan)
+    const keep = new Set([...mediaUrls(parseStoredData(row.data)), ...mediaUrls(parseStoredData(json))]);
+    for (const url of before) if (!keep.has(url)) await removeInvitationMedia(url);
+    return { ok: true, status };
+  }, { body: t.Object({ data: t.Record(t.String(), t.Unknown()), submit: t.Optional(t.Boolean()) }) })
+
+  .post('/intake/:token/upload', async ({ params, body, request, set }) => {
+    if (request.headers.get('x-requested-with') !== 'dyflorist') {
+      set.status = 403;
+      return { error: 'Permintaan ditolak' };
+    }
+    const row = await findInvitationByIntakeToken(params.token);
+    if (!row || (row.intakeStatus !== 'open' && row.intakeStatus !== 'submitted')) {
+      set.status = 404;
+      return { error: 'Formulir tidak ditemukan atau sudah ditutup.' };
+    }
+    if (await rateLimited('intake-up', hashIp(clientIp(request)), 20, 10 * 60 * 1000)
+      || await rateLimited(`iu:${row.id}`, 'all', 60, 60 * 60 * 1000)) {
+      set.status = 429;
+      return { error: 'Terlalu banyak unggahan. Coba lagi beberapa menit lagi.' };
+    }
+    const file = body.file;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      set.status = 413;
+      return { error: 'Foto terlalu besar (maks 4 MB)' };
+    }
+    const buf = new Uint8Array(await file.arrayBuffer());
+    const type = detectImageType(buf);
+    if (!type) {
+      set.status = 415;
+      return { error: 'Hanya foto JPG, PNG, atau WebP' };
+    }
+    const contentType = type === 'png' ? 'image/png' : type === 'webp' ? 'image/webp' : 'image/jpeg';
+    return { url: await storeImage(buf, type, contentType, 'invitations') };
+  }, { body: t.Object({ file: t.File() }) })
 
   .get('/bespoke-prices', async () => {
     const rows = await getDb().select().from(schema.bespokePrices).orderBy(asc(schema.bespokePrices.sort));
@@ -654,6 +762,9 @@ export const app = new Elysia({ prefix: '/api' })
     // ---------- Undangan digital (Admin Utama & Admin Undangan) ----------
     .get('/invitations', async () => {
       const db = getDb();
+      // Arsipkan otomatis yang sudah lewat masa aktif, dan bersihkan link pratinjau yang kedaluwarsa
+      await sweepExpired();
+      await clearExpiredPreviews();
       const rows = await db.select().from(schema.invitations).orderBy(desc(schema.invitations.updatedAt)).limit(500);
       const counts = rows.length
         ? await db.select({
@@ -675,6 +786,8 @@ export const app = new Elysia({ prefix: '/api' })
           firstEvent: d.events.find((e) => e.startIso)?.startIso ?? '',
           wishes: Number(c?.n ?? 0), waiting: Number(c?.waiting ?? 0),
           updatedAt: r.updatedAt, publishedAt: r.publishedAt,
+          expiresAt: expiresAtOf(r)?.toISOString() ?? null,
+          intakeStatus: r.intakeStatus,
         };
       });
     })
@@ -711,12 +824,22 @@ export const app = new Elysia({ prefix: '/api' })
         set.status = 404;
         return { error: 'Undangan tidak ditemukan' };
       }
-      const data = parseStoredData(row.data);
+      await archiveIfExpired(row);
+      const fresh = (await findInvitationById(row.id)) ?? row;
+      const data = parseStoredData(fresh.data);
+      const intake = parseIntake(fresh.intakeData);
+      const previewLive = !!fresh.previewToken && (toDate(fresh.previewExpiresAt)?.getTime() ?? 0) > Date.now();
       return {
-        id: row.id, slug: row.slug, status: row.status, template: row.template,
-        customerName: row.customerName, customerPhone: row.customerPhone, note: row.note,
-        updatedAt: row.updatedAt, publishedAt: row.publishedAt,
-        data, problems: publishProblems(data), stats: await attendanceStats(row.id),
+        id: fresh.id, slug: fresh.slug, status: fresh.status, template: fresh.template,
+        customerName: fresh.customerName, customerPhone: fresh.customerPhone, note: fresh.note,
+        updatedAt: fresh.updatedAt, publishedAt: fresh.publishedAt,
+        retentionDays: fresh.retentionDays, expiresAt: expiresAtOf(fresh)?.toISOString() ?? null,
+        intake: {
+          status: fresh.intakeStatus, token: fresh.intakeToken, submittedAt: fresh.intakeSubmittedAt,
+          summary: intake ? intakeSummary(intake) : null,
+        },
+        preview: previewLive ? { token: fresh.previewToken, expiresAt: fresh.previewExpiresAt } : null,
+        data, problems: publishProblems(data), stats: await attendanceStats(fresh.id),
       };
     }, { params: t.Object({ id: t.Numeric({ minimum: 1 }) }) })
 
@@ -751,19 +874,21 @@ export const app = new Elysia({ prefix: '/api' })
         set.status = 413;
         return { error: 'Isi undangan terlalu panjang' };
       }
-      // Foto/musik lama yang tidak dipakai lagi dihapus dari penyimpanan
+      // Foto/musik lama yang tidak dipakai lagi dihapus dari penyimpanan (yang masih dipakai isian pelanggan tetap disimpan)
       const before = mediaUrls(parseStoredData(row.data));
-      const after = new Set(mediaUrls(data));
+      const after = new Set([...mediaUrls(data), ...(row.intakeData ? mediaUrls(parseStoredData(row.intakeData)) : [])]);
       await db.update(schema.invitations).set({
-        slug, data: json, updatedAt: new Date(),
+        slug, data: json, updatedAt: new Date(), retentionDays: body.retentionDays ?? row.retentionDays,
         customerName: cleanText(body.customerName), customerPhone: cleanText(body.customerPhone), note: cleanText(body.note),
       }).where(eq(schema.invitations.id, row.id));
-      for (const url of before) if (!after.has(url)) await removeImage(url);
-      return { ok: true, slug, data, problems: publishProblems(data) };
+      for (const url of before) if (!after.has(url)) await removeInvitationMedia(url);
+      const saved = (await findInvitationById(row.id)) ?? row;
+      return { ok: true, slug, data, problems: publishProblems(data), retentionDays: saved.retentionDays, expiresAt: expiresAtOf(saved)?.toISOString() ?? null };
     }, {
       params: t.Object({ id: t.Numeric({ minimum: 1 }) }),
       body: t.Object({
         slug: text(3, 60), customerName: text(0, 120), customerPhone: text(0, 30), note: text(0, 500),
+        retentionDays: t.Optional(t.Union(RETENTION_OPTIONS.map((n) => t.Literal(n)))),
         data: t.Record(t.String(), t.Unknown()),
       }),
     })
@@ -780,10 +905,17 @@ export const app = new Elysia({ prefix: '/api' })
           set.status = 422;
           return { error: `Belum bisa diterbitkan: ${problems.join('; ')}` };
         }
+        const exp = expiresAtOf(row);
+        if (exp && exp.getTime() <= Date.now()) {
+          set.status = 422;
+          return { error: 'Masa aktif undangan sudah lewat, jadi akan langsung diarsipkan lagi. Perpanjang masa aktif atau ubah tanggal acara dulu.' };
+        }
       }
       await getDb().update(schema.invitations).set({
         status: body.status, updatedAt: new Date(),
         publishedAt: body.status === 'terbit' ? (row.publishedAt ?? new Date()) : row.publishedAt,
+        // Link pratinjau pelanggan hangus begitu undangan terbit
+        ...(body.status === 'terbit' ? { previewToken: null, previewExpiresAt: null } : {}),
       }).where(eq(schema.invitations.id, row.id));
       return { ok: true, status: body.status };
     }, {
@@ -804,9 +936,70 @@ export const app = new Elysia({ prefix: '/api' })
       }
       await db.delete(schema.invitationWishes).where(eq(schema.invitationWishes.invitationId, row.id));
       await db.delete(schema.invitations).where(eq(schema.invitations.id, row.id));
-      for (const url of mediaUrls(parseStoredData(row.data))) await removeImage(url);
+      const urls = [...mediaUrls(parseStoredData(row.data)), ...(row.intakeData ? mediaUrls(parseStoredData(row.intakeData)) : [])];
+      for (const url of new Set(urls)) await removeInvitationMedia(url);
       return { ok: true };
     }, { params: t.Object({ id: t.Numeric({ minimum: 1 }) }) })
+
+    // Formulir data pelanggan: buka, tutup, atau ganti link
+    .post('/invitations/:id/intake', async ({ params, body, set }) => {
+      const row = await findInvitationById(Number(params.id));
+      if (!row) {
+        set.status = 404;
+        return { error: 'Undangan tidak ditemukan' };
+      }
+      const regenerate = body.action === 'regenerate' || !row.intakeToken;
+      const token = regenerate ? newToken() : row.intakeToken!;
+      const status = body.action === 'close' ? 'closed' : 'open';
+      await getDb().update(schema.invitations).set({ intakeToken: token, intakeStatus: status, updatedAt: new Date() })
+        .where(eq(schema.invitations.id, row.id));
+      return { ok: true, token, status };
+    }, {
+      params: t.Object({ id: t.Numeric({ minimum: 1 }) }),
+      body: t.Object({ action: t.Union([t.Literal('open'), t.Literal('close'), t.Literal('regenerate')]) }),
+    })
+
+    // Terapkan isian pelanggan ke undangan (yang kosong tidak menghapus data admin); formulir lalu dikunci
+    .post('/invitations/:id/intake/apply', async ({ params, set }) => {
+      const row = await findInvitationById(Number(params.id));
+      const intake = row ? parseIntake(row.intakeData) : null;
+      if (!row || !intake) {
+        set.status = 404;
+        return { error: 'Belum ada isian dari pelanggan' };
+      }
+      const before = parseStoredData(row.data);
+      const merged = mergeIntake(before, intake);
+      const after = new Set(mediaUrls(merged));
+      await getDb().update(schema.invitations).set({
+        data: JSON.stringify(merged), intakeStatus: 'applied', updatedAt: new Date(),
+      }).where(eq(schema.invitations.id, row.id));
+      for (const url of mediaUrls(before)) if (!after.has(url)) await removeInvitationMedia(url);
+      return { ok: true, status: 'applied', data: merged, problems: publishProblems(merged) };
+    }, { params: t.Object({ id: t.Numeric({ minimum: 1 }) }) })
+
+    // Link pratinjau rahasia untuk pelanggan (berlaku 14 hari, hangus saat undangan terbit)
+    .post('/invitations/:id/preview-link', async ({ params, body, set }) => {
+      const row = await findInvitationById(Number(params.id));
+      if (!row) {
+        set.status = 404;
+        return { error: 'Undangan tidak ditemukan' };
+      }
+      if (row.status !== 'draft') {
+        set.status = 409;
+        return { error: 'Link pratinjau hanya untuk undangan berstatus Draft. Undangan terbit sudah bisa dibuka lewat link biasa.' };
+      }
+      if (body.action === 'revoke') {
+        await getDb().update(schema.invitations).set({ previewToken: null, previewExpiresAt: null }).where(eq(schema.invitations.id, row.id));
+        return { ok: true, preview: null };
+      }
+      const token = newToken();
+      const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+      await getDb().update(schema.invitations).set({ previewToken: token, previewExpiresAt: expiresAt }).where(eq(schema.invitations.id, row.id));
+      return { ok: true, preview: { token, expiresAt } };
+    }, {
+      params: t.Object({ id: t.Numeric({ minimum: 1 }) }),
+      body: t.Object({ action: t.Union([t.Literal('create'), t.Literal('revoke')]) }),
+    })
 
     // Unggah foto (JPG/PNG/WebP) atau musik (MP3) untuk undangan
     .post('/invitations/upload', async ({ body, set }) => {

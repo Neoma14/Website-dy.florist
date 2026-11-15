@@ -73,6 +73,16 @@ export const invitations = mysqlTable('invitations', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
   publishedAt: datetime('published_at'),
+  // Diarsipkan otomatis sekian hari setelah acara terakhir (0 = tidak otomatis)
+  retentionDays: int('retention_days').notNull().default(180),
+  // Formulir data untuk pelanggan: none | open | submitted | applied | closed
+  intakeToken: varchar('intake_token', { length: 64 }).unique(),
+  intakeStatus: varchar('intake_status', { length: 10 }).notNull().default('none'),
+  intakeData: mediumtext('intake_data'),
+  intakeSubmittedAt: datetime('intake_submitted_at'),
+  // Link pratinjau rahasia untuk pelanggan (berlaku sementara, hangus saat terbit)
+  previewToken: varchar('preview_token', { length: 64 }).unique(),
+  previewExpiresAt: datetime('preview_expires_at'),
 });
 
 // Ucapan & konfirmasi kehadiran tamu
