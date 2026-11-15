@@ -135,7 +135,7 @@ var DEMO_INVITATION = {
     ],
     address: "Jl. Contoh Melati No. 12, Kota Metro, Lampung"
   },
-  music: { src: "", title: "" },
+  music: { src: "/assets/undangan/contoh/musik-contoh.mp3", title: "Janji Suci \u2013 Yovie & Nuno (Saxophone Cover by Dori Wirawan)" },
   closing: {
     thanks: "Merupakan kebahagiaan dan kehormatan bagi kami apabila Bapak/Ibu/Saudara/i berkenan hadir dan memberikan doa restu. Atas kehadiran dan doa yang diberikan, kami ucapkan terima kasih.",
     prayer: "Semoga Allah SWT menghimpun kami dalam kebaikan dan menjadikan pernikahan ini penuh berkah, ketenangan, dan kasih sayang.",
