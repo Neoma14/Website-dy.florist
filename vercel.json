@@ -15,6 +15,10 @@
     {
       "source": "/katalog",
       "destination": "/index.html"
+    },
+    {
+      "source": "/undangan/:slug",
+      "destination": "/undangan.html"
     }
   ],
   "headers": [

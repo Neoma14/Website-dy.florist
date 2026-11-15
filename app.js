@@ -310,7 +310,8 @@ const CATEGORY_EMPTY_INFO = {
     icon: '💌',
     text: 'Undangan digital untuk pernikahan, ulang tahun, dan acara spesial lainnya. Konsultasikan desainnya bersama kami.',
     wa: 'Halo dy.florist, saya ingin konsultasi undangan digital',
-    btn: 'Konsultasi Undangan Digital via WhatsApp'
+    btn: 'Konsultasi Undangan Digital via WhatsApp',
+    link: { href: '/undangan/demo', text: 'Lihat contoh undangan digital tema Jawa Elegan', sameTab: true }
   },
   lainnya: {
     icon: '✨',
@@ -338,7 +339,7 @@ function renderCatalog() {
     grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 48px 16px;">
       <p style="color: var(--color-text-muted); margin-bottom: 16px;">${info.icon} ${info.text}</p>
       <a class="btn btn-primary" href="https://wa.me/${WA_PHONE_NUMBER}?text=${encodeURIComponent(info.wa)}" target="_blank" rel="noopener noreferrer">${info.btn}</a>
-      ${info.link ? `<p style="margin-top: 14px;"><a class="consult-link" href="${info.link.href}" target="_blank" rel="noopener noreferrer">${info.link.text} →</a></p>` : ''}
+      ${info.link ? `<p style="margin-top: 14px;"><a class="consult-link" href="${info.link.href}"${info.link.sameTab ? '' : ' target="_blank" rel="noopener noreferrer"'}>${info.link.text} →</a></p>` : ''}
     </div>`;
     return;
   }

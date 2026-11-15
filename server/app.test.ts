@@ -225,6 +225,17 @@ test('halaman bagikan produk: tag Open Graph berisi foto, teks di-escape, id ane
   await call(`/api/admin/products/${id}`, { method: 'DELETE', cookie });
 });
 
+test('undangan digital: contoh bisa dibaca publik, slug lain 404', async () => {
+  const res = await call('/api/invitations/demo');
+  assert.equal(res.status, 200);
+  const d = await res.json() as any;
+  assert.equal(d.isDemo, true);
+  assert.equal(d.couple.groom.nickname, 'Rizky');
+  assert.ok(Array.isArray(d.events) && d.events.length >= 1);
+  assert.equal((await call('/api/invitations/tidak-ada')).status, 404);
+  assert.equal((await call('/api/invitations/..%2Fadmin')).status, 404);
+});
+
 test('harga Bespoke: publik bisa baca, ubah hanya admin dengan data valid', async () => {
   const list = await (await call('/api/bespoke-prices')).json() as any[];
   assert.ok(list.some((p) => p.key === 'hand_bouquet' && p.kind === 'type'));

@@ -54,6 +54,96 @@ async function sendBlockedAlert(info) {
   }
 }
 
+// server/invitations/demo.ts
+var DEMO_INVITATION = {
+  slug: "demo",
+  template: "jawa-elegan",
+  isDemo: true,
+  theme: { javanese: true },
+  couple: {
+    groom: {
+      fullName: "Rizky Pratama, S.T.",
+      nickname: "Rizky",
+      childOrder: "Putra pertama dari",
+      father: "Bapak Ahmad Santoso",
+      mother: "Ibu Sri Wahyuni",
+      photo: ""
+    },
+    bride: {
+      fullName: "Nadia Safitri, S.Pd.",
+      nickname: "Nadia",
+      childOrder: "Putri kedua dari",
+      father: "Bapak Hendra Gunawan",
+      mother: "Ibu Rina Marlina",
+      photo: ""
+    }
+  },
+  dateLabel: "Sabtu, 12 Juni 2027",
+  heroLine: "Dua hati, satu niat suci, melangkah bersama dalam ikatan pernikahan.",
+  greeting: {
+    salam: "Assalamu\u2019alaikum Warahmatullahi Wabarakatuh",
+    opening: "Dengan memohon rahmat dan ridho Allah SWT, kami bermaksud menyelenggarakan pernikahan putra-putri kami. Merupakan kehormatan dan kebahagiaan bagi kami apabila Bapak/Ibu/Saudara/i berkenan hadir untuk memberikan doa restu.",
+    quote: {
+      arabic: "\u0648\u064E\u0645\u0650\u0646\u0652 \u0627\u0670\u064A\u0670\u062A\u0650\u0647\u0656\u0653 \u0627\u064E\u0646\u0652 \u062E\u064E\u0644\u064E\u0642\u064E \u0644\u064E\u0643\u064F\u0645\u0652 \u0645\u0650\u0651\u0646\u0652 \u0627\u064E\u0646\u0652\u0641\u064F\u0633\u0650\u0643\u064F\u0645\u0652 \u0627\u064E\u0632\u0652\u0648\u064E\u0627\u062C\u064B\u0627 \u0644\u0650\u0651\u062A\u064E\u0633\u0652\u0643\u064F\u0646\u064F\u0648\u0652\u0653\u0627 \u0627\u0650\u0644\u064E\u064A\u0652\u0647\u064E\u0627 \u0648\u064E\u062C\u064E\u0639\u064E\u0644\u064E \u0628\u064E\u064A\u0652\u0646\u064E\u0643\u064F\u0645\u0652 \u0645\u064E\u0651\u0648\u064E\u062F\u064E\u0651\u0629\u064B \u0648\u064E\u0651\u0631\u064E\u062D\u0652\u0645\u064E\u0629\u064B",
+      text: "Dan di antara tanda-tanda (kebesaran)-Nya ialah Dia menciptakan pasangan-pasangan untukmu dari jenismu sendiri, agar kamu cenderung dan merasa tenteram kepadanya, dan Dia menjadikan di antaramu rasa kasih dan sayang.",
+      source: "QS. Ar-Rum: 21"
+    }
+  },
+  events: [
+    {
+      id: "akad",
+      title: "Akad Nikah",
+      startIso: "2027-06-12T08:00:00+07:00",
+      endIso: "2027-06-12T10:00:00+07:00",
+      dateLabel: "Sabtu, 12 Juni 2027",
+      timeLabel: "08.00 \u2013 10.00 WIB",
+      venueName: "Kediaman Mempelai Wanita",
+      address: "Jl. Contoh Melati No. 12, Kota Metro, Lampung",
+      mapsUrl: ""
+    },
+    {
+      id: "resepsi",
+      title: "Resepsi",
+      startIso: "2027-06-12T11:00:00+07:00",
+      endIso: "2027-06-12T14:00:00+07:00",
+      dateLabel: "Sabtu, 12 Juni 2027",
+      timeLabel: "11.00 \u2013 14.00 WIB",
+      venueName: "Gedung Serbaguna (contoh)",
+      address: "Jl. Contoh Kenanga No. 8, Kota Metro, Lampung",
+      mapsUrl: ""
+    }
+  ],
+  story: [
+    { title: "Awal Bertemu", period: "2021", body: "Kami pertama kali bertemu dalam sebuah kegiatan kampus. Sapaan sederhana hari itu menjadi awal cerita yang tak pernah kami duga." },
+    { title: "Tumbuh Bersama", period: "2023", body: "Hari demi hari kami belajar saling memahami, saling menguatkan, dan menemukan bahwa kebersamaan adalah tempat paling nyaman untuk pulang." },
+    { title: "Lamaran", period: "2026", body: "Dengan restu kedua orang tua, kami memantapkan langkah untuk melanjutkan hubungan ini ke jenjang pernikahan." }
+  ],
+  photos: { cover: "", gallery: [] },
+  gifts: {
+    note: "Doa restu Anda merupakan karunia yang sangat berarti bagi kami. Namun jika memberi adalah ungkapan tanda kasih, Anda dapat memberi kado secara cashless.",
+    accounts: [
+      { bank: "BANK CONTOH", number: "1234567890", name: "Rizky Pratama (contoh)" },
+      { bank: "E-WALLET CONTOH", number: "081200000000", name: "Nadia Safitri (contoh)" }
+    ],
+    address: "Jl. Contoh Melati No. 12, Kota Metro, Lampung"
+  },
+  music: { src: "", title: "" },
+  closing: {
+    thanks: "Merupakan kebahagiaan dan kehormatan bagi kami apabila Bapak/Ibu/Saudara/i berkenan hadir dan memberikan doa restu. Atas kehadiran dan doa yang diberikan, kami ucapkan terima kasih.",
+    prayer: "Semoga Allah SWT menghimpun kami dalam kebaikan dan menjadikan pernikahan ini penuh berkah, ketenangan, dan kasih sayang.",
+    salam: "Wassalamu\u2019alaikum Warahmatullahi Wabarakatuh",
+    family: "Keluarga Besar Bapak Ahmad Santoso & Keluarga Besar Bapak Hendra Gunawan"
+  },
+  rsvp: { enabled: true, maxGuests: 5 },
+  wishes: {
+    enabled: true,
+    sample: [
+      { name: "Contoh Tamu", attendance: "hadir", message: "Selamat menempuh hidup baru! Semoga menjadi keluarga yang sakinah, mawaddah, warahmah." },
+      { name: "Contoh Sahabat", attendance: "ragu", message: "Barakallahu lakuma wa baraka alaikuma. Bahagia selalu untuk kalian berdua." }
+    ]
+  }
+};
+
 // server/app.ts
 import { Elysia, t } from "elysia";
 import { randomBytes as randomBytes3, randomUUID } from "node:crypto";
@@ -500,6 +590,13 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
 <link rel="canonical" href="${e(SITE_URL + target)}">
 <meta http-equiv="refresh" content="0; url=${e(target)}">
 </head><body><p><a href="${e(target)}">${e(p.name)}</a></p></body></html>`);
+}).get("/invitations/:slug", ({ params, set }) => {
+  if (params.slug !== "demo") {
+    set.status = 404;
+    return { error: "Undangan tidak ditemukan" };
+  }
+  set.headers["cache-control"] = "public, max-age=300";
+  return DEMO_INVITATION;
 }).get("/bespoke-prices", async () => {
   const rows = await getDb().select().from(schema_exports.bespokePrices).orderBy(asc(schema_exports.bespokePrices.sort));
   return rows.map((r) => ({ key: r.key, kind: r.kind, label: r.label, price: r.price }));

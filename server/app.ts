@@ -1,4 +1,5 @@
 import { SITE_URL, sendBlockedAlert } from './lib/mailer';
+import { DEMO_INVITATION } from './invitations/demo';
 import { Elysia, t } from 'elysia';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -241,6 +242,16 @@ export const app = new Elysia({ prefix: '/api' })
 <link rel="canonical" href="${e(SITE_URL + target)}">
 <meta http-equiv="refresh" content="0; url=${e(target)}">
 </head><body><p><a href="${e(target)}">${e(p.name)}</a></p></body></html>`);
+  })
+
+  // Data undangan digital (sementara: hanya undangan contoh; undangan pelanggan menyusul di database)
+  .get('/invitations/:slug', ({ params, set }) => {
+    if (params.slug !== 'demo') {
+      set.status = 404;
+      return { error: 'Undangan tidak ditemukan' };
+    }
+    set.headers['cache-control'] = 'public, max-age=300';
+    return DEMO_INVITATION;
   })
 
   .get('/bespoke-prices', async () => {

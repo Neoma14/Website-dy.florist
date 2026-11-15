@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 287 46" width="287" height="46">
+<defs><linearGradient id="ematas-l-0" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f6e3a4" stop-opacity="1"/><stop offset="0.5" stop-color="#d7b15a" stop-opacity="1"/><stop offset="1" stop-color="#b08a3c" stop-opacity="1"/></linearGradient></defs>
+<g fill="none" stroke="url(#ematas-l-0)" stroke-linecap="round" stroke-width="2.2">
+<path d="M143.5 32C137.5 20 119.5 18 118.5 28C117.5 36 129.5 35 128.5 29"/><path d="M143.5 32C137.5 20 119.5 18 118.5 28C117.5 36 129.5 35 128.5 29" transform="translate(287 0) scale(-1 1)"/>
+<path d="M118.5 28C101.5 16 77.5 22 81.5 32C83.5 37 91.5 35 89.5 31"/><path d="M118.5 28C101.5 16 77.5 22 81.5 32C83.5 37 91.5 35 89.5 31" transform="translate(287 0) scale(-1 1)"/>
+<path d="M81.5 32C61.5 22 37.5 28 39.5 36"/><path d="M81.5 32C61.5 22 37.5 28 39.5 36" transform="translate(287 0) scale(-1 1)"/>
+<path d="M8 34L279 34" stroke-width="1.8"/></g>
+<path d="M143.5 27l6 7l-6 7l-6 -7z" fill="url(#ematas-l-0)"/>
+</svg>
