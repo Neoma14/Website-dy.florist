@@ -167,6 +167,7 @@ const toPublic = (p: typeof schema.products.$inferSelect) => ({
   id: p.id, name: p.name, category: p.category, categoryName: p.categoryName, price: p.price,
   originalPrice: p.originalPrice ?? null,
   demoUrl: p.demoUrl ?? null,
+  featured: p.featured,
   badge: p.badge, description: p.description, image: p.image, rating: p.rating / 10, reviews: p.reviews,
 });
 
@@ -219,6 +220,13 @@ export const app = new Elysia({ prefix: '/api' })
     const rows = await getDb().select().from(schema.products)
       .orderBy(desc(schema.products.createdAt), desc(schema.products.id));
     return rows.map(toPublic);
+  })
+
+  // Gambar beranda hasil pilihan admin; yang tidak ada di sini memakai gambar bawaan halaman
+  .get('/site-images', async ({ set }) => {
+    set.headers['cache-control'] = 'public, max-age=0, must-revalidate, s-maxage=20';
+    const rows = await getDb().select().from(schema.siteImages);
+    return Object.fromEntries(rows.map((r) => [r.key, r.url]));
   })
 
   .get('/categories', async () => {
@@ -307,7 +315,7 @@ export const app = new Elysia({ prefix: '/api' })
       return { error: 'Permintaan ditolak' };
     }
     const row = /^[a-z0-9-]{3,60}$/.test(params.slug) ? await findInvitationBySlug(params.slug) : undefined;
-    if (row && await archiveIfExpired(row)) {
+    if (row && (row.status === 'arsip' || await archiveIfExpired(row))) {
       set.status = 410;
       return { error: 'Undangan ini sudah tidak aktif.' };
     }
@@ -704,6 +712,36 @@ export const app = new Elysia({ prefix: '/api' })
       if (old.image !== body.image) await removeImage(old.image);
       return { ok: true };
     }, { body: productBody })
+
+    .put('/products/:id/featured', async ({ params, body, set }) => {
+      const [res] = await getDb().update(schema.products).set({ featured: body.featured }).where(eq(schema.products.id, params.id));
+      if (!res.affectedRows) {
+        set.status = 404;
+        return { error: 'Produk tidak ditemukan' };
+      }
+      return { ok: true };
+    }, { body: t.Object({ featured: t.Boolean() }) })
+
+    .put('/site-images/:key', async ({ params, body, set }) => {
+      if (!/^pillar[1-4]$/.test(params.key)) {
+        set.status = 404;
+        return { error: 'Bagian gambar tidak dikenal' };
+      }
+      const db = getDb();
+      const [old] = await db.select().from(schema.siteImages).where(eq(schema.siteImages.key, params.key)).limit(1);
+      if (body.image) {
+        if (!isAllowedImage(body.image)) {
+          set.status = 422;
+          return { error: 'Foto tidak valid' };
+        }
+        await db.insert(schema.siteImages).values({ key: params.key, url: body.image })
+          .onDuplicateKeyUpdate({ set: { url: body.image } });
+      } else {
+        await db.delete(schema.siteImages).where(eq(schema.siteImages.key, params.key));
+      }
+      if (old && old.url !== body.image) await removeImage(old.url);
+      return { ok: true };
+    }, { body: t.Object({ image: t.String({ maxLength: 500 }) }) })
 
     .delete('/products/:id', async ({ params, set }) => {
       const db = getDb();

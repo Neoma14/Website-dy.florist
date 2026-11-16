@@ -158,7 +158,8 @@ const ALLOWED_ACTIONS = new Set([
   'changeCartQty', 'openQuickView', 'openAdminModal', 'handleAdminLogout', 'clearOrdersLog', 'cancelEditProduct',
   'addToCart', 'closeQuickView', 'closeCart', 'goCatalog', 'handleProductImageUpload', 'filterAdminProducts',
   'saveAdminProduct', 'handleAdminLogin', 'selectCategory', 'saveAdminCategory', 'startEditCategory',
-  'cancelEditCategory', 'deleteCategory', 'updateDiscountHint', 'saveBespokePrices', 'handleAdminRecover'
+  'cancelEditCategory', 'deleteCategory', 'updateDiscountHint', 'saveBespokePrices', 'handleAdminRecover',
+  'toggleFeatured', 'handleHomeImageUpload', 'resetHomeImage'
 ]);
 
 function runActions(spec, el) {
@@ -211,7 +212,7 @@ let searchQuery = '';
 
 // Halaman /katalog menampilkan semua produk; beranda hanya beberapa produk pertama
 const IS_CATALOG_PAGE = location.pathname.replace(/\/+$/, '') === '/katalog';
-const HOME_PRODUCT_LIMIT = 4;
+const HOME_FEATURED_MAX = 8; // batas jumlah produk pilihan di beranda
 const SITE_ORIGIN = 'https://www.dyflorist.site';
 
 function setupCatalogPage() {
@@ -254,6 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const gridEl = document.getElementById('productsGrid');
   if (gridEl) gridEl.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; padding: 32px; color: var(--color-text-muted);">Memuat produk...</p>';
   setupCatalogPage();
+  loadSiteImages();
   Promise.all([loadCategories(), loadProducts()]).then(() => {
     renderCategoryTabs();
     populateCategorySelects();
@@ -360,8 +362,11 @@ function renderCatalog() {
 
   if (emptyState) emptyState.style.display = 'none';
 
-  updateCatalogMoreButton(filtered.length);
-  const shown = IS_CATALOG_PAGE ? filtered : filtered.slice(0, HOME_PRODUCT_LIMIT);
+  updateCatalogMoreButton(filtered.length, IS_CATALOG_PAGE ? filtered.length : Math.min(HOME_FEATURED_MAX, (activeFilter === 'all' && !searchQuery && filtered.some(p => p.featured) ? filtered.filter(p => p.featured) : filtered).length));
+  // Beranda (tanpa filter/pencarian) menampilkan produk yang diceklis admin; belum ada yang dipilih = produk terbaru
+  const featured = filtered.filter(p => p.featured);
+  const homeList = activeFilter === 'all' && !searchQuery && featured.length ? featured : filtered;
+  const shown = IS_CATALOG_PAGE ? filtered : homeList.slice(0, HOME_FEATURED_MAX);
 
   grid.innerHTML = shown.map(item => `
     <article class="product-card" data-id="${esc(item.id)}">
@@ -391,7 +396,7 @@ function renderCatalog() {
   `).join('');
 }
 
-function updateCatalogMoreButton(total) {
+function updateCatalogMoreButton(total, shownCount) {
   const btn = document.getElementById('catalogMoreBtn');
   if (!btn || IS_CATALOG_PAGE) return;
   const params = new URLSearchParams();
@@ -399,7 +404,7 @@ function updateCatalogMoreButton(total) {
   if (searchQuery) params.set('q', searchQuery);
   btn.setAttribute('href', '/katalog' + (params.toString() ? '?' + params : ''));
   const text = document.getElementById('catalogMoreText');
-  if (text) text.textContent = total > HOME_PRODUCT_LIMIT ? `Lihat Semua (${total})` : 'Lihat Semua Produk';
+  if (text) text.textContent = total > shownCount ? `Lihat Semua (${total})` : 'Lihat Semua Produk';
 }
 
 function setupSearch() {
@@ -1810,6 +1815,8 @@ window.switchAdminTab = function(tabName) {
   const contentOrders = document.getElementById('adminTabOrders');
   const contentCategories = document.getElementById('adminTabCategories');
   const contentBespoke = document.getElementById('adminTabBespoke');
+  const contentHome = document.getElementById('adminTabHome');
+  if (contentHome) contentHome.style.display = (tabName === 'home') ? 'block' : 'none';
   if (contentBespoke) contentBespoke.style.display = (tabName === 'bespoke') ? 'block' : 'none';
 
   if (contentCategories) contentCategories.style.display = (tabName === 'categories') ? 'block' : 'none';
@@ -1825,6 +1832,8 @@ window.switchAdminTab = function(tabName) {
     renderAdminCategories();
   } else if (tabName === 'bespoke') {
     renderAdminBespokePrices();
+  } else if (tabName === 'home') {
+    renderAdminHomeImages();
   }
 };
 
@@ -1852,7 +1861,7 @@ window.renderAdminProductsTable = function() {
   });
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--color-text-muted);">Tidak ada produk ditemukan.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--color-text-muted);">Tidak ada produk ditemukan.</td></tr>`;
     return;
   }
 
@@ -1871,6 +1880,9 @@ window.renderAdminProductsTable = function() {
       <td style="font-weight: 600; color: var(--color-primary);">${formatIDR(item.price)}${discountOf(item) ? `<br><s style="color: var(--color-text-muted); font-weight: 400; font-size: 0.8rem;">${formatIDR(discountOf(item).was)}</s> <span class="price-off">-${discountOf(item).pct}%</span>` : ''}</td>
       <td>
         ${item.badge ? `<span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: var(--color-primary-soft); color: var(--color-primary); font-weight: 600;">${esc(item.badge)}</span>` : '-'}
+      </td>
+      <td style="text-align:center;">
+        <input type="checkbox" class="featured-check" aria-label="Tampilkan ${esc(item.name)} di beranda" ${item.featured ? 'checked' : ''} data-change="toggleFeatured('${esc(item.id)}', this)">
       </td>
       <td>
         <button class="btn-action-edit" data-click="startEditProduct('${esc(item.id)}')">Edit</button>
@@ -2043,6 +2055,100 @@ window.saveAdminProduct = async function() {
     showToast(e.message || 'Gagal menyimpan produk.');
   } finally {
     if (saveBtn) saveBtn.disabled = false;
+  }
+};
+
+window.toggleFeatured = async function(id, box) {
+  const item = PRODUCTS.find(p => p.id === id);
+  if (!item || !box) return;
+  const want = !!box.checked;
+  box.disabled = true;
+  try {
+    await adminApi('/admin/products/' + encodeURIComponent(id) + '/featured', { method: 'PUT', json: { featured: want } });
+    item.featured = want;
+    renderCatalog();
+    showToast(want ? `"${item.name}" tampil di beranda.` : `"${item.name}" disembunyikan dari beranda.`);
+  } catch (e) {
+    box.checked = !want;
+    showToast(e.message || 'Gagal menyimpan pilihan.');
+  } finally {
+    box.disabled = false;
+  }
+};
+
+// ---- Gambar kartu layanan beranda (4 pilar) ----
+const HOME_IMAGE_SLOTS = [
+  { key: 'pillar1', label: 'Pilar 01 — Florist', def: '/assets/bouquet.jpg' },
+  { key: 'pillar2', label: 'Pilar 02 — Gift', def: '/assets/gift.jpg' },
+  { key: 'pillar3', label: 'Pilar 03 — Craft', def: '/assets/dome.jpg' },
+  { key: 'pillar4', label: 'Pilar 04 — Dekorasi', def: '/assets/dekorasi.svg' }
+];
+let SITE_IMAGES = {};
+
+async function loadSiteImages() {
+  try {
+    SITE_IMAGES = await api('/site-images');
+  } catch (e) {
+    SITE_IMAGES = {};
+  }
+  applySiteImages();
+}
+
+function applySiteImages() {
+  HOME_IMAGE_SLOTS.forEach(slot => {
+    const img = document.querySelector(`img[data-pillar="${slot.key}"]`);
+    if (img) img.src = safeImg(SITE_IMAGES[slot.key] || slot.def);
+  });
+}
+
+window.renderAdminHomeImages = function() {
+  const grid = document.getElementById('homeImagesGrid');
+  if (!grid) return;
+  grid.innerHTML = HOME_IMAGE_SLOTS.map(slot => `
+    <div class="home-image-card">
+      <img src="${esc(safeImg(SITE_IMAGES[slot.key] || slot.def))}" alt="${esc(slot.label)}" data-fallback="/assets/bouquet.jpg">
+      <strong>${esc(slot.label)}</strong>
+      <input type="file" accept="image/*" data-change="handleHomeImageUpload('${slot.key}', this)">
+      ${SITE_IMAGES[slot.key] ? `<button type="button" class="btn-action-delete" data-click="resetHomeImage('${slot.key}')">Kembalikan foto bawaan</button>` : '<small class="form-hint">Memakai foto bawaan</small>'}
+    </div>`).join('');
+};
+
+window.handleHomeImageUpload = async function(key, input) {
+  const file = input && input.files && input.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    showToast('File harus berupa gambar.');
+    input.value = '';
+    return;
+  }
+  input.disabled = true;
+  showToast('Mengunggah foto...');
+  try {
+    const blob = await resizeImageToBlob(file);
+    const form = new FormData();
+    form.set('file', blob, 'foto.jpg');
+    const { url } = await adminApi('/admin/upload', { method: 'POST', form });
+    await adminApi('/admin/site-images/' + encodeURIComponent(key), { method: 'PUT', json: { image: url } });
+    SITE_IMAGES[key] = url;
+    applySiteImages();
+    renderAdminHomeImages();
+    showToast('Gambar beranda diperbarui.');
+  } catch (e) {
+    showToast(e.message || 'Upload foto gagal.');
+    input.value = '';
+    input.disabled = false;
+  }
+};
+
+window.resetHomeImage = async function(key) {
+  try {
+    await adminApi('/admin/site-images/' + encodeURIComponent(key), { method: 'PUT', json: { image: '' } });
+    delete SITE_IMAGES[key];
+    applySiteImages();
+    renderAdminHomeImages();
+    showToast('Dikembalikan ke foto bawaan.');
+  } catch (e) {
+    showToast(e.message || 'Gagal mengembalikan foto.');
   }
 };
 

@@ -426,9 +426,10 @@ __export(schema_exports, {
   products: () => products,
   rateEvents: () => rateEvents,
   recoveryTokens: () => recoveryTokens,
-  sessions: () => sessions
+  sessions: () => sessions,
+  siteImages: () => siteImages
 });
-import { mysqlTable, varchar, int, text, mediumtext, timestamp, datetime, index } from "drizzle-orm/mysql-core";
+import { mysqlTable, varchar, int, text, mediumtext, boolean, timestamp, datetime, index } from "drizzle-orm/mysql-core";
 var categories = mysqlTable("categories", {
   key: varchar("key", { length: 30 }).primaryKey(),
   name: varchar("name", { length: 40 }).notNull(),
@@ -456,11 +457,17 @@ var products = mysqlTable("products", {
   // Link contoh untuk produk undangan digital (mis. /undangan/demo); null = tidak ada
   demoUrl: varchar("demo_url", { length: 200 }),
   badge: varchar("badge", { length: 40 }).notNull().default(""),
+  // Tampil di etalase beranda (dipilih admin lewat ceklis); false = hanya di halaman katalog
+  featured: boolean("featured").notNull().default(false),
   description: text("description").notNull(),
   image: varchar("image", { length: 500 }).notNull(),
   rating: int("rating_x10").notNull().default(50),
   reviews: int("reviews").notNull().default(1),
   createdAt: timestamp("created_at").notNull().defaultNow()
+});
+var siteImages = mysqlTable("site_images", {
+  key: varchar("key", { length: 30 }).primaryKey(),
+  url: varchar("url", { length: 500 }).notNull()
 });
 var orders = mysqlTable("orders", {
   id: int("id").autoincrement().primaryKey(),
@@ -963,6 +970,7 @@ var toPublic = (p) => ({
   price: p.price,
   originalPrice: p.originalPrice ?? null,
   demoUrl: p.demoUrl ?? null,
+  featured: p.featured,
   badge: p.badge,
   description: p.description,
   image: p.image,
@@ -1004,6 +1012,10 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
 }).get("/health", () => ({ ok: true })).get("/products", async () => {
   const rows = await getDb().select().from(schema_exports.products).orderBy(desc2(schema_exports.products.createdAt), desc2(schema_exports.products.id));
   return rows.map(toPublic);
+}).get("/site-images", async ({ set }) => {
+  set.headers["cache-control"] = "public, max-age=0, must-revalidate, s-maxage=20";
+  const rows = await getDb().select().from(schema_exports.siteImages);
+  return Object.fromEntries(rows.map((r) => [r.key, r.url]));
 }).get("/categories", async () => {
   const rows = await getDb().select().from(schema_exports.categories).orderBy(asc(schema_exports.categories.sort), asc(schema_exports.categories.key));
   return rows.map((c) => ({ key: c.key, name: c.name, emoji: c.emoji }));
@@ -1072,7 +1084,7 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
     return { error: "Permintaan ditolak" };
   }
   const row = /^[a-z0-9-]{3,60}$/.test(params.slug) ? await findInvitationBySlug(params.slug) : void 0;
-  if (row && await archiveIfExpired(row)) {
+  if (row && (row.status === "arsip" || await archiveIfExpired(row))) {
     set.status = 410;
     return { error: "Undangan ini sudah tidak aktif." };
   }
@@ -1439,7 +1451,32 @@ var app = new Elysia({ prefix: "/api" }).onRequest(async ({ request }) => {
     await db.update(schema_exports.products).set({ ...body, originalPrice: normalizeOriginalPrice(body.price, body.originalPrice), demoUrl: body.demoUrl || null, categoryName }).where(eq3(schema_exports.products.id, params.id));
     if (old.image !== body.image) await removeImage(old.image);
     return { ok: true };
-  }, { body: productBody }).delete("/products/:id", async ({ params, set }) => {
+  }, { body: productBody }).put("/products/:id/featured", async ({ params, body, set }) => {
+    const [res] = await getDb().update(schema_exports.products).set({ featured: body.featured }).where(eq3(schema_exports.products.id, params.id));
+    if (!res.affectedRows) {
+      set.status = 404;
+      return { error: "Produk tidak ditemukan" };
+    }
+    return { ok: true };
+  }, { body: t.Object({ featured: t.Boolean() }) }).put("/site-images/:key", async ({ params, body, set }) => {
+    if (!/^pillar[1-4]$/.test(params.key)) {
+      set.status = 404;
+      return { error: "Bagian gambar tidak dikenal" };
+    }
+    const db = getDb();
+    const [old] = await db.select().from(schema_exports.siteImages).where(eq3(schema_exports.siteImages.key, params.key)).limit(1);
+    if (body.image) {
+      if (!isAllowedImage(body.image)) {
+        set.status = 422;
+        return { error: "Foto tidak valid" };
+      }
+      await db.insert(schema_exports.siteImages).values({ key: params.key, url: body.image }).onDuplicateKeyUpdate({ set: { url: body.image } });
+    } else {
+      await db.delete(schema_exports.siteImages).where(eq3(schema_exports.siteImages.key, params.key));
+    }
+    if (old && old.url !== body.image) await removeImage(old.url);
+    return { ok: true };
+  }, { body: t.Object({ image: t.String({ maxLength: 500 }) }) }).delete("/products/:id", async ({ params, set }) => {
     const db = getDb();
     const [old] = await db.select().from(schema_exports.products).where(eq3(schema_exports.products.id, params.id)).limit(1);
     if (!old) {

@@ -1,4 +1,4 @@
-import { mysqlTable, varchar, int, text, mediumtext, timestamp, datetime, index } from 'drizzle-orm/mysql-core';
+import { mysqlTable, varchar, int, text, mediumtext, boolean, timestamp, datetime, index } from 'drizzle-orm/mysql-core';
 
 export const categories = mysqlTable('categories', {
   key: varchar('key', { length: 30 }).primaryKey(),
@@ -28,11 +28,19 @@ export const products = mysqlTable('products', {
   // Link contoh untuk produk undangan digital (mis. /undangan/demo); null = tidak ada
   demoUrl: varchar('demo_url', { length: 200 }),
   badge: varchar('badge', { length: 40 }).notNull().default(''),
+  // Tampil di etalase beranda (dipilih admin lewat ceklis); false = hanya di halaman katalog
+  featured: boolean('featured').notNull().default(false),
   description: text('description').notNull(),
   image: varchar('image', { length: 500 }).notNull(),
   rating: int('rating_x10').notNull().default(50),
   reviews: int('reviews').notNull().default(1),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// Gambar bagian beranda yang bisa diganti admin (mis. pillar1..pillar4); tidak ada baris = pakai gambar bawaan
+export const siteImages = mysqlTable('site_images', {
+  key: varchar('key', { length: 30 }).primaryKey(),
+  url: varchar('url', { length: 500 }).notNull(),
 });
 
 export const orders = mysqlTable('orders', {

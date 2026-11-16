@@ -809,3 +809,31 @@ test('error server tidak membocorkan detail & body rusak ditolak', async () => {
   const text = await res.text();
   assert.ok(!/stack|at .*\.ts|mysql|drizzle/i.test(text));
 });
+
+test('beranda: produk pilihan (ceklis) & gambar kartu layanan bisa diatur admin', async () => {
+  const cookie = await login();
+  const body = { name: 'Uji Pilihan', category: 'gift_craft', price: 100000, badge: '', description: 'desc', image: '/assets/logo.png' };
+  const { id } = await (await call('/api/admin/products', { method: 'POST', cookie, ...json(body) })).json() as { id: string };
+  const find = async () => ((await (await call('/api/products')).json()) as any[]).find((p) => p.id === id);
+  assert.equal((await find()).featured, false);
+  // ceklis hanya untuk admin, validasi tipe, produk tak dikenal 404
+  assert.equal((await call(`/api/admin/products/${id}/featured`, { method: 'PUT', ...json({ featured: true }) })).status, 401);
+  assert.equal((await call(`/api/admin/products/${id}/featured`, { method: 'PUT', cookie, ...json({ featured: 'ya' }) })).status, 422);
+  assert.equal((await call('/api/admin/products/tidak-ada/featured', { method: 'PUT', cookie, ...json({ featured: true }) })).status, 404);
+  assert.equal((await call(`/api/admin/products/${id}/featured`, { method: 'PUT', cookie, ...json({ featured: true }) })).status, 200);
+  assert.equal((await find()).featured, true);
+  // menyimpan produk dari form tidak mengubah pilihan beranda
+  await call(`/api/admin/products/${id}`, { method: 'PUT', cookie, ...json({ ...body, name: 'Uji Pilihan 2' }) });
+  assert.equal((await find()).featured, true);
+  await call(`/api/admin/products/${id}`, { method: 'DELETE', cookie });
+
+  // gambar kartu layanan
+  const put = (key: string, image: string, c: string | undefined = cookie) => call(`/api/admin/site-images/${key}`, { method: 'PUT', cookie: c, ...json({ image }) });
+  assert.equal((await put('pillar1', '/assets/logo.png', undefined)).status, 401);
+  assert.equal((await put('pillar9', '/assets/logo.png')).status, 404);
+  assert.equal((await put('pillar1', 'https://evil.example/x.jpg')).status, 422);
+  assert.equal((await put('pillar1', '/assets/logo.png')).status, 200);
+  assert.equal(((await (await call('/api/site-images')).json()) as any).pillar1, '/assets/logo.png');
+  assert.equal((await put('pillar1', '')).status, 200);
+  assert.equal(((await (await call('/api/site-images')).json()) as any).pillar1, undefined);
+});

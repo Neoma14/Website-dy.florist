@@ -168,7 +168,7 @@
           <!-- Pillar 1: Florist -->
           <div class="pillar-card" data-category="segar">
             <div class="pillar-img-wrap">
-              <img src="/assets/bouquet.jpg" alt="dy.florist Rangkaian Bunga" loading="lazy">
+              <img src="/assets/bouquet.jpg" alt="dy.florist Rangkaian Bunga" loading="lazy" data-pillar="pillar1">
               <span class="pillar-tag">Pilar 01</span>
             </div>
             <div class="pillar-body">
@@ -184,7 +184,7 @@
           <!-- Pillar 2: Gift -->
           <div class="pillar-card" data-category="gift_craft">
             <div class="pillar-img-wrap">
-              <img src="/assets/gift.jpg" alt="dy.florist Gift & Hampers" loading="lazy">
+              <img src="/assets/gift.jpg" alt="dy.florist Gift & Hampers" loading="lazy" data-pillar="pillar2">
               <span class="pillar-tag">Pilar 02</span>
             </div>
             <div class="pillar-body">
@@ -200,7 +200,7 @@
           <!-- Pillar 3: Craft -->
           <div class="pillar-card" data-category="gift_craft">
             <div class="pillar-img-wrap">
-              <img src="/assets/dome.jpg" alt="dy.florist Craft & Preserved" loading="lazy">
+              <img src="/assets/dome.jpg" alt="dy.florist Craft & Preserved" loading="lazy" data-pillar="pillar3">
               <span class="pillar-tag">Pilar 03</span>
             </div>
             <div class="pillar-body">
@@ -216,7 +216,7 @@
           <!-- Pillar 4: Dekorasi -->
           <div class="pillar-card" data-category="dekorasi">
             <div class="pillar-img-wrap">
-              <img src="/assets/dekorasi.svg" alt="Dekorasi dy.florist" loading="lazy">
+              <img src="/assets/dekorasi.svg" alt="Dekorasi dy.florist" loading="lazy" data-pillar="pillar4">
               <span class="pillar-tag">Pilar 04</span>
             </div>
             <div class="pillar-body">
@@ -736,6 +736,7 @@
           <button class="admin-tab" data-tab="add" data-click="switchAdminTab('add')">➕ Tambah Produk Baru</button>
           <button class="admin-tab" data-tab="categories" data-click="switchAdminTab('categories')">🏷️ Kategori (<span id="adminCategoriesCount">0</span>)</button>
           <button class="admin-tab" data-tab="bespoke" data-click="switchAdminTab('bespoke')">💐 Harga Bespoke</button>
+          <button class="admin-tab" data-tab="home" data-click="switchAdminTab('home')">🖼️ Gambar Beranda</button>
           <button class="admin-tab" data-tab="orders" data-click="switchAdminTab('orders')">📋 Riwayat Order (<span id="adminOrdersCount">0</span>)</button>
           <a class="admin-tab admin-tab-link" href="/admin/undangan">💌 Undangan Digital ↗</a>
           <div class="admin-nav-spacer"></div>
@@ -758,6 +759,7 @@
                   <th>Kategori</th>
                   <th>Harga (IDR)</th>
                   <th>Badge</th>
+                  <th title="Centang agar produk tampil di etalase beranda">Di Beranda</th>
                   <th>Aksi</th>
                 </tr>
               </thead>
@@ -877,6 +879,11 @@
           <div class="form-actions" style="margin-top: 16px;">
             <button type="button" class="btn btn-primary" id="btnSaveBespoke" data-click="saveBespokePrices()">Simpan Harga Bespoke</button>
           </div>
+        </div>
+
+        <div class="admin-tab-content" id="adminTabHome" style="display: none;">
+          <p class="form-hint" style="margin-bottom: 14px;">Ganti foto 4 kartu layanan di beranda. Foto dikecilkan otomatis. "Kembalikan" memakai foto bawaan.</p>
+          <div class="home-images-grid" id="homeImagesGrid"></div>
         </div>
 
         <div class="admin-tab-content" id="adminTabOrders" style="display: none;">
